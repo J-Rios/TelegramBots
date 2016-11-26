@@ -47,7 +47,7 @@ def ayuda(bot, update):
 # Manejador correspondiente al comando /comandos
 def comandos(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		update.message.reply_text("Lista de comandos implementados: \n/inicio\n/ayuda\n/apagar\n/reiniciar\n/red_conectada\n/ip\n/temp\n/fecha\n/almacenamientos\n/arquitectura\n/kernel\n/pwd\n/ls\n/lsusb\n/montajes\n/cat\n/ssh_on\n/ssh_off\n/ssh_reiniciar\n/ssh_estado\n/vnc_on\n/vnc_off\n/scriptfex\n/exportar\n/drivers") # Respondemos al comando con el mensaje
+		update.message.reply_text("Lista de comandos implementados: \n/inicio\n/ayuda\n/comandos\n/apagar\n/reiniciar\n/red_conectada\n/ip\n/temp\n/fecha\n/almacenamientos\n/arquitectura\n/kernel\n/pwd\n/ls\n/lsusb\n/montajes\n/cat\n/ssh_on\n/ssh_off\n/ssh_reiniciar\n/ssh_estado\n/vnc_on\n/vnc_off\n/scriptfex\n/exportar\n/drivers") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /apagar
 def apagar(bot, update):

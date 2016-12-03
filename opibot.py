@@ -42,12 +42,12 @@ def inicio(bot, update):
 # Manejador correspondiente al comando /ayuda
 def ayuda(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		update.message.reply_text("Lista de comandos implementados: \n\n/inicio - Comando de inicio\n\n/ayuda - Consulta la lista de comandos implementados y la descripcion de estos\n\n/comandos - Consulta de forma rapida la lista de comandos implementados\n\n/apagar - Apaga el sistema\n\n/reiniciar - Reiniciar el sistema\n\n/red_conectada - Consulta el nombre de la red a la que está conectado\n\n/ip - Consulta la IP del sistema\n\n/temp - Consulta la temperatura actual del SOC\n\n/fecha - Consulta la fecha del sistema\n\n/almacenamientos - Consulta los dispositivos de almacenamiento en el sistema\n\n/arquitectura - Consulta la arquitectura del SOC\n\n/kernel - Consulta la versión del Kernel del sistema\n\n/pwd - Consulta la ruta actual del Script del Bot\n\n/ls - Lista los archivos de una ruta especifica\n\n/lsusb - Consulta los dispositivos USB conectados al sistema\n\n/montajes - Consulta los dispositivos montados en el sistema\n\n/cat - Muestra el contenido de un archivo\n\n/ssh_on - Activa el servidor SSH\n\n/ssh_off - Detiene el servidor SSH\n\n/ssh_reiniciar - Reinicia el servidor SSH\n\n/ssh_estado - Consulta el estado actual del servidor SSH\n\n/vnc_on - Activa el servidor VNC\n\n/vnc_off - Detiene el servidor VNC\n\n/scriptfex - Genera el archivo script.fex del sistema y lo exporta\n\n/exportar - Exporta archivos del sistema\n\n/drivers - Consulta los Drivers activos en el sistema") # Respondemos al comando con el mensaje
+		update.message.reply_text("Lista de comandos implementados: \n\n/inicio - Comando de inicio\n\n/ayuda - Consulta la lista de comandos implementados y la descripcion de estos\n\n/comandos - Consulta de forma rapida la lista de comandos implementados\n\n/apagar - Apaga el sistema\n\n/reiniciar - Reiniciar el sistema\n\n/red_conectada - Consulta el nombre de la red a la que está conectado\n\n/ip - Consulta la IP del sistema\n\n/temp - Consulta la temperatura actual del SOC\n\n/fecha - Consulta la fecha del sistema\n\n/almacenamientos - Consulta los dispositivos de almacenamiento en el sistema\n\n/arquitectura - Consulta la arquitectura del SOC\n\n/kernel - Consulta la versión del Kernel del sistema\n\n/pwd - Consulta la ruta actual del Script del Bot\n\n/ls - Lista los archivos de una ruta especifica\n\n/lsusb - Consulta los dispositivos USB conectados al sistema\n\n/montajes - Consulta los dispositivos montados en el sistema\n\n/cat - Muestra el contenido de un archivo\n\n/ssh_on - Activa el servidor SSH\n\n/ssh_off - Detiene el servidor SSH\n\n/ssh_reiniciar - Reinicia el servidor SSH\n\n/ssh_estado - Consulta el estado actual del servidor SSH\n\n/vnc_on - Activa el servidor VNC\n\n/vnc_off - Detiene el servidor VNC\n\n/scriptfex - Genera el archivo script.fex del sistema y lo exporta\n\n/importar - Importa archivos al sistema\n\n/exportar - Exporta archivos del sistema\n\n/drivers - Consulta los Drivers activos en el sistema") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /comandos
 def comandos(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		update.message.reply_text("Lista de comandos implementados: \n/inicio\n/ayuda\n/comandos\n/apagar\n/reiniciar\n/red_conectada\n/ip\n/temp\n/fecha\n/almacenamientos\n/arquitectura\n/kernel\n/pwd\n/ls\n/lsusb\n/montajes\n/cat\n/ssh_on\n/ssh_off\n/ssh_reiniciar\n/ssh_estado\n/vnc_on\n/vnc_off\n/scriptfex\n/exportar\n/drivers") # Respondemos al comando con el mensaje
+		update.message.reply_text("Lista de comandos implementados: \n/inicio\n/ayuda\n/comandos\n/apagar\n/reiniciar\n/red_conectada\n/ip\n/temp\n/fecha\n/almacenamientos\n/arquitectura\n/kernel\n/pwd\n/ls\n/lsusb\n/montajes\n/cat\n/ssh_on\n/ssh_off\n/ssh_reiniciar\n/ssh_estado\n/vnc_on\n/vnc_off\n/scriptfex\n/importar\n/exportar\n/drivers") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /apagar
 def apagar(bot, update):
@@ -201,12 +201,41 @@ def exportar(bot, update, args):
 			finally:
 				archivo.close() # Cerrar el archivo
 		else:
-			update.message.reply_text("Especifica el archivo que deseas extraer") # Respondemos al comando con el mensaje
-		
+			update.message.reply_text("Se debe especificar el archivo que deseas extraer. Ejemplo:\n '/exportar /home/user/archivo'") # Respondemos al comando con el mensaje
+			
+esperando_archivo = 0
+# Manejador correspondiente al comando /importar
+def importar(bot, update, args):
+	global esperando_archivo
+	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
+		if len(update.message.text) > 10 : # Solo hacer caso si el comando presenta argumento
+			ruta_poner_archivo = args[0]
+			update.message.reply_text("Inserta el archivo a enviar (tipo documento)")
+			esperando_archivo = 1
+		else:
+			update.message.reply_text("Se debe especificar la ruta donde deseas importar el archivo. Ejemplo:\n '/importar /home/user'") # Respondemos al comando con el mensaje
+
+def archivo_recibido(bot, update):	
+	global esperando_archivo
+	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
+		if esperando_archivo == 1:
+			update.message.reply_text("Archivo ")
+			nombre_archivo = update.message.document.file_name
+			id_archivo = update.message.document.file_id
+			archivo = bot.getFile(id_archivo)
+			update.message.reply_text("Archivo " + nombre_archivo + " recibido")
+			
+			archivo.download(nombre_archivo)
+			llamadaSistema("sudo yes | cp -rf " + nombre_archivo + " " + ruta_poner_archivo) # Copia el archivo descargado en el directorio pedido
+			llamadaSistema("sudo rm -rf " + nombre_archivo) # Elimina el archivo descargado
+			print "sudo yes | cp -rf " + nombre_archivo + " " + ruta_poner_archivo
+			update.message.reply_text("sudo yes | cp -rf " + nombre_archivo + " " + ruta_poner_archivo)
+			esperando_archivo = 0
+
 # Manejador para mensajes recibidos que no son comandos
 def mensaje_nocomando(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		update.message.reply_text("Por favor envia un comando adecuado. Para conocer los comandos implementados consulta la /ayuda") # Respondemos al comando con el mensaje
+		update.message.reply_text("Por favor envia un comando adecuado.\nPara conocer los comandos implementados consulta la /ayuda") # Respondemos al comando con el mensaje
 
 
 ##############################
@@ -245,9 +274,11 @@ def main():
 	dp.add_handler(CommandHandler("vnc_off", vnc_off))
 	dp.add_handler(CommandHandler("scriptfex", scriptfex))
 	dp.add_handler(CommandHandler("exportar", exportar, pass_args=True))
+	dp.add_handler(CommandHandler("importar", importar, pass_args=True))
 
 	# Asociamos un manejador para cualquier mensaje recibido (no comando)
 	dp.add_handler(MessageHandler(Filters.text, mensaje_nocomando))
+	dp.add_handler(MessageHandler(Filters.document, archivo_recibido))
 
 	# Iniciamos el bot
 	updater.start_polling()

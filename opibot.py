@@ -219,7 +219,6 @@ def archivo_recibido(bot, update):
 	global esperando_archivo
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		if esperando_archivo == 1:
-			update.message.reply_text("Archivo ")
 			nombre_archivo = update.message.document.file_name
 			id_archivo = update.message.document.file_id
 			archivo = bot.getFile(id_archivo)

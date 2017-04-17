@@ -8,6 +8,7 @@
 import os
 import sys
 import time
+import numbers
 
 # Importar desde librerias
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup

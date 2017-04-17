@@ -143,9 +143,20 @@ def cat(bot, update, args):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		if len(update.message.text) > 5: # Comprobar si el comando presenta argumento o no
 			_cat = llamadaSistema("cat " + args[0]) # Llamada al sistema
-			update.message.reply_text(_cat) # Respondemos al comando con el mensaje
+			num_caracteres_fichero = len(_cat) # Determinamos el numero de caracteres que tiene el archivo
+			if num_caracteres_fichero < 4096: # Si el numero de caracteres es menor a 4096 se envia un unico mensaje con todo el contenido
+				update.message.reply_text(_cat) # Respondemos al comando con el mensaje
+			else: # Si el numero de caracteres es superior a 4096, se divide el contenido del archivo en diversos fragmentos de texto que se enviaran en varios mensajes
+				num_mensajes = num_caracteres_fichero/float(4095) # Se determina el numero de mensajes a enviar
+				if isinstance(num_mensajes, numbers.Integral) != True: # Si no es un numero entero (es decimal)
+					num_mensajes = int(num_mensajes) + 1 # Se aumenta el numero de mensajes en 1
+				fragmento = 0
+				for i in range(0, num_mensajes): # Se van enviando cada fragmento de texto en diversos mensajes
+					mensaje = _cat[fragmento:fragmento+4095].decode('utf-8', 'ignore') # Creamos un mensaje correspondiente al fragmento de texto actual
+					update.message.reply_text(mensaje) # Respondemos al comando con el mensaje
+					fragmento = fragmento + 4095 # Aumentamos el fragmento de texto (cursor de caracteres)
 		else:
-			update.message.reply_text("Especifica un archivo") # Respondemos al comando con el mensaje
+			update.message.reply_text("Especifica un archivo. Ejemplo:\n '/cat /home/user/archivo.txt'") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ssh_on
 def ssh_on(bot, update):

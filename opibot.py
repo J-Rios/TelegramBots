@@ -122,7 +122,7 @@ def pwd(bot, update):
 # Manejador correspondiente al comando /ls
 def ls(bot, update, args):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		if len(update.message.text) < 4: # Comprobar si el comando presenta argumento o no
+		if len(args) == 1: # Comprobar si el comando presenta argumento o no
 			_ls = llamadaSistema("ls") # Llamada al sistema
 		else:
 			_ls = llamadaSistema("ls " + args[0]) # Llamada al sistema
@@ -143,7 +143,7 @@ def montajes(bot, update):
 # Manejador correspondiente al comando /cat
 def cat(bot, update, args):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		if len(update.message.text) > 5: # Comprobar si el comando presenta argumento o no
+		if len(args) == 1: # Comprobar si el comando presenta argumento o no
 			_cat = llamadaSistema("cat " + args[0]) # Llamada al sistema
 			num_caracteres_fichero = len(_cat) # Determinamos el numero de caracteres que tiene el archivo
 			if num_caracteres_fichero < 4096: # Si el numero de caracteres es menor a 4096 se envia un unico mensaje con todo el contenido
@@ -207,7 +207,7 @@ def scriptfex(bot, update):
 # Manejador correspondiente al comando /exportar
 def exportar(bot, update, args):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		if len(update.message.text) > 10 : # Solo hacer caso si el comando presenta argumento
+		if len(args) == 1: # Solo hacer caso si el comando presenta argumento
 			archivo = open(args[0], 'rb') # Abrimos el archivo
 			try:
 				bot.sendDocument(ID, archivo) # Intentar enviar el archivo
@@ -221,7 +221,7 @@ esperando_archivo = 0
 def importar(bot, update, args):
 	global esperando_archivo
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		if len(update.message.text) > 10 : # Solo hacer caso si el comando presenta argumento
+		if len(args) == 1: # Solo hacer caso si el comando presenta argumento
 			ruta_poner_archivo = args[0]
 			update.message.reply_text("Inserta el archivo a enviar (tipo documento)")
 			esperando_archivo = 1
@@ -251,14 +251,17 @@ def wget(bot, update, args):
 	global esperando_ruta
 	global enlace_descarga
 	if update.message.chat_id == ID: # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		if len(update.message.text) > 6: # Solo hacer caso si el comando presenta argumento
+		if len(args) == 2: # Si el comando presenta 2 argumentos
+			enlace_descarga = args[0]
+			ruta = args[1]
+			subprocess.Popen(["nohup", "wget", enlace_descarga, "-P", ruta])
+		elif len(args) == 1: # Si el comando presenta 1 argumento
 			if esperando_ruta == 0:
-				#pdb.set_trace()
 				enlace_descarga = args[0]
 				update.message.reply_text("Especifica a continuacion, la ruta donde almacenar el archivo a descargar")
 				esperando_ruta = 1
 		else:
-			update.message.reply_text("Se debe especificar el enlace (URL) de descarga. Ejemplo:\n '/wget https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar el enlace (URL) de descarga y el directorio de descarga. Ejemplo:\n '/wget https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py /home/usuario/descargas'") # Respondemos al comando con el mensaje
 
 # Manejador para mensajes recibidos que no son comandos
 def mensaje_nocomando(bot, update):

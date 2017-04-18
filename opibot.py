@@ -255,13 +255,14 @@ def wget(bot, update, args):
 			enlace_descarga = args[0]
 			ruta = args[1]
 			subprocess.Popen(["nohup", "wget", enlace_descarga, "-P", ruta])
+			update.message.reply_text("Descargando en '" + ruta + "' desde el enlace " + enlace_descarga) # Respondemos al comando con el mensaje
 		elif len(args) == 1: # Si el comando presenta 1 argumento
 			if esperando_ruta == 0:
 				enlace_descarga = args[0]
-				update.message.reply_text("Especifica a continuacion, la ruta donde almacenar el archivo a descargar")
+				update.message.reply_text("Especifica a continuacion, la ruta donde almacenar el archivo a descargar.\n\nEjemplo:\n /home/usuario/descargas")
 				esperando_ruta = 1
 		else:
-			update.message.reply_text("Se debe especificar el enlace (URL) de descarga y el directorio de descarga. Ejemplo:\n '/wget https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py /home/usuario/descargas'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar el enlace (URL) de descarga y el directorio de descarga.\n\nEjemplo:\n '/wget https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py /home/usuario/descargas'") # Respondemos al comando con el mensaje
 
 # Manejador para mensajes recibidos que no son comandos
 def mensaje_nocomando(bot, update):
@@ -270,8 +271,8 @@ def mensaje_nocomando(bot, update):
 		if esperando_ruta == 1:
 			esperando_ruta = 0
 			ruta = update.message.text
-			update.message.reply_text("Descargando en '" + ruta + "' desde el enlace " + enlace_descarga) # Respondemos al comando con el mensaje
 			subprocess.Popen(["nohup", "wget", enlace_descarga, "-P", ruta])
+			update.message.reply_text("Descargando en '" + ruta + "' desde el enlace " + enlace_descarga) # Respondemos al comando con el mensaje
 		else:
 			update.message.reply_text("Por favor envia un comando adecuado.\nPara conocer los comandos implementados consulta la /ayuda") # Respondemos al comando con el mensaje
 

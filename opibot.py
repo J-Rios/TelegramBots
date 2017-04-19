@@ -12,7 +12,7 @@ import numbers
 import subprocess
 
 # Importar desde librerias
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+#from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler, CallbackQueryHandler)
 
 ##############################
@@ -37,7 +37,7 @@ def llamadaSistema(entrada):
 # Comandos recibidos
 
 # Manejador correspondiente al comando /inicio
-def inicio(bot, update):
+def start(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		update.message.reply_text("Este es un Bot que permite controlar y comprobar ciertos aspectos del sistema Orange Pi en el que se aloja. Para conocer los comandos implementados consulta la /ayuda") # Respondemos al comando con el mensaje
 
@@ -55,18 +55,18 @@ def comandos(bot, update):
 def apagar(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		update.message.reply_text("Apagando el sistema") # Respondemos al comando con el mensaje
-		llamadaSistema("sudo shutdown -h now") # Llamada al sistema
+		llamadaSistema("shutdown -h now") # Llamada al sistema
 
 # Manejador correspondiente al comando /reiniciar
 def reiniciar(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		update.message.reply_text("Reiniciando el sistema") # Respondemos al comando con el mensaje
-		llamadaSistema("sudo reboot") # Llamada al sistema
+		llamadaSistema("reboot") # Llamada al sistema
 
 # Manejador correspondiente al comando /red_conectada
 def red_conectada(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		ssidred = llamadaSistema("sudo iwgetid") # Llamada al sistema
+		ssidred = llamadaSistema("iwgetid") # Llamada al sistema
 		update.message.reply_text(ssidred) # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ip
@@ -79,7 +79,7 @@ def ip(bot, update):
 # Manejador correspondiente al comando /temp
 def temp(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		temp = llamadaSistema("sudo cat /etc/armbianmonitor/datasources/soctemp") # Llamada al sistema
+		temp = llamadaSistema("cat /etc/armbianmonitor/datasources/soctemp") # Llamada al sistema
 		temp = "Temperatura del SOC: " + temp + "ºC" # Escribimos el mensaje a devolver
 		update.message.reply_text(temp) # Respondemos al comando con el mensaje
 
@@ -127,15 +127,15 @@ def cd(bot, update, args):
 			os.chdir(directorio)
 			update.message.reply_text("Cambiando al directorio " + directorio) # Respondemos al comando con el mensaje
 		else:
-			update.message.reply_text("Se debe especificar el directorio al que acceder.\n\nEjemplo:\n'/cd /home/usuario'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar el directorio al que acceder.\n\nEjemplo:\n/cd /home/usuario") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ls
 def ls(bot, update, args):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		if len(args) == 1: # Comprobar si el comando presenta argumento o no
-			_ls = llamadaSistema("ls") # Llamada al sistema
-		else:
 			_ls = llamadaSistema("ls " + args[0]) # Llamada al sistema
+		else:
+			_ls = llamadaSistema("ls") # Llamada al sistema
 		update.message.reply_text(_ls) # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /lsusb
@@ -168,30 +168,30 @@ def cat(bot, update, args):
 					update.message.reply_text(mensaje) # Respondemos al comando con el mensaje
 					fragmento = fragmento + 4095 # Aumentamos el fragmento de texto (cursor de caracteres)
 		else:
-			update.message.reply_text("Especifica un archivo.\n\nEjemplo:\n'/cat /home/user/archivo.txt'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Especifica un archivo.\n\nEjemplo:\n/cat /home/user/archivo.txt") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ssh_on
 def ssh_on(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		llamadaSistema("sudo /etc/init.d/ssh start") # Llamada al sistema
+		llamadaSistema("/etc/init.d/ssh start") # Llamada al sistema
 		update.message.reply_text("Iniciando servidor SSH") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ssh_off
 def ssh_off(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		llamadaSistema("sudo /etc/init.d/ssh stop") # Llamada al sistema
+		llamadaSistema("/etc/init.d/ssh stop") # Llamada al sistema
 		update.message.reply_text("Deteniendo servidor SSH") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ssh_reiniciar
 def ssh_reiniciar(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		llamadaSistema("sudo /etc/init.d/ssh restart") # Llamada al sistema
+		llamadaSistema("/etc/init.d/ssh restart") # Llamada al sistema
 		update.message.reply_text(respuesta) # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /ssh_estado
 def ssh_estado(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		respuesta = llamadaSistema("sudo /etc/init.d/ssh status") # Llamada al sistema
+		respuesta = llamadaSistema("/etc/init.d/ssh status") # Llamada al sistema
 		update.message.reply_text(respuesta) # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /vnc_on
@@ -210,7 +210,7 @@ def vnc_off(bot, update):
 # Manejador correspondiente al comando /scriptfex
 def scriptfex(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
-		llamadaSistema("sudo bin2fex /boot/script.bin /boot/script.fex") # Transforma Script.bin en Script.fex
+		llamadaSistema("bin2fex /boot/script.bin /boot/script.fex") # Transforma Script.bin en Script.fex
 		time.sleep(5) # Esperamos 5 segundos (para que se complete la transformacion)
 		bot.sendDocument(ID, open('/boot/script.fex', 'rb')) # Enviamos el archivo
 
@@ -224,7 +224,7 @@ def exportar(bot, update, args):
 			finally:
 				archivo.close() # Cerrar el archivo
 		else:
-			update.message.reply_text("Se debe especificar el archivo que deseas extraer.\n\nEjemplo:\n'/exportar /home/user/archivo'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar el archivo que deseas extraer.\n\nEjemplo:\n/exportar /home/user/archivo") # Respondemos al comando con el mensaje
 			
 esperando_archivo = 0
 # Manejador correspondiente al comando /importar
@@ -236,7 +236,7 @@ def importar(bot, update, args):
 			update.message.reply_text("Inserta el archivo a enviar (tipo documento)")
 			esperando_archivo = 1
 		else:
-			update.message.reply_text("Se debe especificar la ruta donde deseas importar el archivo.\n\nEjemplo:\n'/importar /home/user'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar la ruta donde deseas importar el archivo.\n\nEjemplo:\n/importar /home/user") # Respondemos al comando con el mensaje
 
 esperando_ruta = 0
 enlace_descarga = ""
@@ -256,7 +256,7 @@ def descargar(bot, update, args):
 				update.message.reply_text("Especifica a continuacion, la ruta donde almacenar el archivo a descargar.\n\nEjemplo:\n/descargar https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py /home/usuario/descargas")
 				esperando_ruta = 1
 		else:
-			update.message.reply_text("Se debe especificar el enlace (URL) de descarga y el directorio de descarga.\n\nEjemplo:\n'/descargar https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py /home/usuario/descargas'") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar el enlace (URL) de descarga y el directorio de descarga.\n\nEjemplo:\n/descargar https://raw.githubusercontent.com/J-Rios/TelegramBots/master/opibot.py /home/usuario/descargas") # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /buscar
 def buscar(bot, update, args):
@@ -264,10 +264,10 @@ def buscar(bot, update, args):
 		if len(args) == 2: # Si el comando presenta 2 argumentos
 			nombre_archivo = args[0]
 			ruta = args[1]
-			resultado = llamadaSistema("sudo find " + ruta + " -name '*" + nombre_archivo + "*'") # Llamada al sistema
+			resultado = llamadaSistema("find " + ruta + " -name '*" + nombre_archivo + "*'") # Llamada al sistema
 			update.message.reply_text("Archivos encontrados para el termino de busqueda:\n\n'" + resultado) # Respondemos al comando con el mensaje
 		else:
-			update.message.reply_text("Se debe especificar el archivo y el directorio desde el que buscar.\n\nEjemplo:\n`/buscar .log /`") # Respondemos al comando con el mensaje
+			update.message.reply_text("Se debe especificar el archivo y el directorio desde el que buscar.\n\nEjemplo:\n/buscar .log /") # Respondemos al comando con el mensaje
 
 ##############################
 
@@ -292,8 +292,8 @@ def archivo_recibido(bot, update):
 			id_archivo = update.message.document.file_id
 			archivo = bot.getFile(id_archivo)
 			archivo.download(nombre_archivo)
-			llamadaSistema("sudo yes | cp -a " + nombre_archivo + " " + ruta_poner_archivo) # Copia el archivo descargado en el directorio pedido
-			llamadaSistema("sudo rm -rf " + nombre_archivo) # Elimina el archivo descargado
+			llamadaSistema("cp -a " + nombre_archivo + " " + ruta_poner_archivo) # Copia el archivo descargado en el directorio pedido
+			llamadaSistema("rm -rf " + nombre_archivo) # Elimina el archivo descargado
 			update.message.reply_text("Archivo " + nombre_archivo + " recibido y posicionado en " + ruta_poner_archivo)
 			esperando_archivo = 0
 
@@ -307,7 +307,7 @@ def main():
 	dp = updater.dispatcher
 
 	# Asociamos manejadores para cada comando reconocible
-	dp.add_handler(CommandHandler("inicio", inicio))
+	dp.add_handler(CommandHandler("start", start))
 	dp.add_handler(CommandHandler("ayuda", ayuda))
 	dp.add_handler(CommandHandler("comandos", comandos))
 	dp.add_handler(CommandHandler("apagar", apagar))

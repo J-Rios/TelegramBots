@@ -12,7 +12,6 @@ import numbers
 import subprocess
 
 # Importar desde librerias
-#from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler, CallbackQueryHandler)
 
 ##############################
@@ -227,9 +226,11 @@ def exportar(bot, update, args):
 			update.message.reply_text("Se debe especificar el archivo que deseas extraer.\n\nEjemplo:\n/exportar /home/user/archivo") # Respondemos al comando con el mensaje
 			
 esperando_archivo = 0
+ruta_poner_archivo = ""
 # Manejador correspondiente al comando /importar
 def importar(bot, update, args):
 	global esperando_archivo
+	global ruta_poner_archivo
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		if len(args) == 1: # Solo hacer caso si el comando presenta argumento
 			ruta_poner_archivo = args[0]
@@ -286,14 +287,16 @@ def mensaje_nocomando(bot, update):
 # Manejador para recepcion de archivos enviados por el usuario
 def archivo_recibido(bot, update):	
 	global esperando_archivo
+	global ruta_poner_archivo
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		if esperando_archivo == 1:
 			nombre_archivo = update.message.document.file_name
 			id_archivo = update.message.document.file_id
 			archivo = bot.getFile(id_archivo)
+			ruta_actual = os.getcwd()
+			os.chdir(ruta_poner_archivo)
 			archivo.download(nombre_archivo)
-			llamadaSistema("cp -a " + nombre_archivo + " " + ruta_poner_archivo) # Copia el archivo descargado en el directorio pedido
-			llamadaSistema("rm -rf " + nombre_archivo) # Elimina el archivo descargado
+			os.chdir(ruta_poner_archivo)
 			update.message.reply_text("Archivo " + nombre_archivo + " recibido y posicionado en " + ruta_poner_archivo)
 			esperando_archivo = 0
 
@@ -326,6 +329,7 @@ def main():
 	dp.add_handler(CommandHandler("lsusb", lsusb))
 	dp.add_handler(CommandHandler("montajes", montajes))
 	dp.add_handler(CommandHandler("cat", cat, pass_args=True))
+	dp.add_handler(CommandHandler("borrar", borrar, pass_args=True))
 	dp.add_handler(CommandHandler("ssh_on", ssh_on))
 	dp.add_handler(CommandHandler("ssh_off", ssh_off))
 	dp.add_handler(CommandHandler("ssh_reiniciar", ssh_reiniciar))

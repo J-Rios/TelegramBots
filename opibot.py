@@ -149,6 +149,16 @@ def montajes(bot, update):
 		_df = llamadaSistema("df") # Llamada al sistema
 		update.message.reply_text(_df) # Respondemos al comando con el mensaje
 
+# Manejador correspondiente al comando /borrar
+def borrar(bot, update, args):
+	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
+		if len(args) == 1: # Comprobar si el comando presenta argumento o no
+			archivo = args[0]
+			llamadaSistema("rm -rf " + args[0]) # Llamada al sistema
+			update.message.reply_text("Archivo " + archivo + " borrado") # Respondemos al comando con el mensaje
+		else:
+			update.message.reply_text("Especifica un archivo.\n\nEjemplo:\n/borrar /home/user/archivo.txt") # Respondemos al comando con el mensaje
+
 # Manejador correspondiente al comando /cat
 def cat(bot, update, args):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
@@ -328,8 +338,8 @@ def main():
 	dp.add_handler(CommandHandler("ls", ls, pass_args=True))
 	dp.add_handler(CommandHandler("lsusb", lsusb))
 	dp.add_handler(CommandHandler("montajes", montajes))
-	dp.add_handler(CommandHandler("cat", cat, pass_args=True))
 	dp.add_handler(CommandHandler("borrar", borrar, pass_args=True))
+	dp.add_handler(CommandHandler("cat", cat, pass_args=True))
 	dp.add_handler(CommandHandler("ssh_on", ssh_on))
 	dp.add_handler(CommandHandler("ssh_off", ssh_off))
 	dp.add_handler(CommandHandler("ssh_reiniciar", ssh_reiniciar))

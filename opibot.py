@@ -72,7 +72,7 @@ def red_conectada(bot, update):
 def ip(bot, update):
 	if update.message.chat_id == ID : # Solo hacer caso si quien le habla es el remitente correspondiente a dicha ID
 		ip = llamadaSistema("hostname -I") # Llamada al sistema
-		ip = ip[:-2] # Eliminamos ultimos caracteres
+		ip = ip[:-1] # Eliminamos el ultimo caracter
 		update.message.reply_text(ip) # Respondemos al comando con el mensaje
 
 # Manejador correspondiente al comando /temp

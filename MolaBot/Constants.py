@@ -10,7 +10,7 @@ Descripcion:
 
 Autor:   Jose Rios Rubio
 Fecha:   19/07/2017
-Version: 1.1
+Version: 1.2
 '''
 
 # Constantes para el Bot

@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   18/07/2017
-Version: 1.0
+Fecha:   19/07/2017
+Version: 1.1
 '''
 
 ### Librerias ###
@@ -21,7 +21,7 @@ import json
 import datetime
 
 # Importacion desde librerias
-from Constants import *
+from Constants import CONST
 from threading import Lock
 from collections import OrderedDict
 from telegram import MessageEntity, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
@@ -71,7 +71,10 @@ def json_write(file, data):
     try: # Intentar abrir el archivo
         lock.acquire() # Cerramos (adquirimos) el mutex
         with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-            f.write("\n{}\n".format(json.dumps(data, ensure_ascii=False, encoding="utf-8", indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
+            #if CONST['PYTHON'] == 2: # Compatibilidad con Python 2
+            #    f.write("\n{}\n".format(json.dumps(data, ensure_ascii=False, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
+            #else:
+            f.write("\n{}\n".format(json.dumps(data, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
     except: # Error intentando abrir el archivo
         print("    Error cuando se abria para escritura, el archivo {}".format(file)) # Escribir en consola el error
     finally: # Para acabar, haya habido excepcion o no
@@ -101,22 +104,26 @@ def json_write_content(file, data):
         if os.path.exists(file) and os.stat(file).st_size: # Si el archivo existe y no esta vacio
             with open(file, "r") as f: # Abrir el archivo en modo lectura
                 content = json.load(f, object_pairs_hook=OrderedDict) # Leer todo el archivo y devolver la lectura de los datos json usando un diccionario ordenado
-            
+
             content['Content'].append(data) # Añadir los nuevos datos al contenido del json
             
             with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-                f.write("\n{}\n".format(json.dumps(content, ensure_ascii=False, encoding="utf-8", indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
+                f.write("\n{}\n".format(json.dumps(content, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
         else: # El archivo no existe o esta vacio
             with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
                 f.write('\n{\n    "Content": []\n}\n') # Escribir la estructura de contenido basica
             
             with open(file, "r") as f: # Abrir el archivo en modo lectura
                 content = json.load(f) # Leer todo el archivo
-            
+
             content['Content'].append(data) # Añadir los datos al contenido del json
 
             with open(file, "w") as f:  # Abrir el archivo en modo escritura (sobre-escribe)
-                f.write("\n{}\n".format(json.dumps(content, ensure_ascii=False, encoding="utf-8", indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
+                f.write("\n{}\n".format(json.dumps(content, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
+    except ValueError:
+        print("Could not convert data to an integer.")
     except: # Error intentando abrir el archivo
         print("    Error cuando se abria para escritura, el archivo {}".format(file)) # Escribir en consola el error
     finally: # Para acabar, haya habido excepcion o no
@@ -171,7 +178,7 @@ def json_delete(file):
 # Funcion para obtener los datos de reputacion de un usuario a traves de un ID
 def get_reputation(user_id):
     
-    content = json_read_content(F_USR) # Leer el contenido del archivo de usuarios
+    content = json_read_content(CONST['F_USR']) # Leer el contenido del archivo de usuarios
     
     for usr in content: # Para cada usuario del archivo
         if user_id == usr['User_id']: # Si el usuario presenta el ID que estamos buscando
@@ -182,7 +189,7 @@ def get_reputation(user_id):
 # Funcion para obtener los datos de likes de un mensaje a traves de un ID
 def get_likes(msg_id):
     
-    content = json_read_content(F_MSG) # Leer el contenido del archivo de mensajes
+    content = json_read_content(CONST['F_MSG']) # Leer el contenido del archivo de mensajes
     
     for msg in content: # Para cada mensaje del archivo
         if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
@@ -198,40 +205,46 @@ def give_like(voter_id, voter_name, msg_id):
         if not hasVoted(voter_id, msg_id): # Si el usuario que vota aun no ha votado
             likes_data['Data']['Likes'] = likes_data['Data']['Likes'] + 1 # Dar el like
             likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
-            json_update(F_MSG, likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
+            json_update(CONST['F_MSG'], likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
             
-            if likes_data['Data']['Likes'] % GIVE_REP_MOD : # Si el numero de likes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...)
-                increase_reputation(likes_data['Data']['User_id']) # Incrementamos la reputacion
+            if likes_data['Data']['Likes'] % CONST['GIVE_REP_MOD'] : # Si el numero de likes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...)
+                lvl_up = increase_reputation(likes_data['Data']['User_id']) # Incrementamos la reputacion
+                if lvl_up: # Si se ha subido de nivel
+                    return "LVL_UP" # Devolvemos "LVL_UP" (se ha subido de nivel)
             return "Ok" # Devolvemos "Ok" (se ha dado el like)
         else: # El usuario que vota ya dio su like con anterioridad
             print("    El votante ya voto con anterioridad") # Escribir en consola
             print("") # Escribir en consola
             return "Voted" # Devolvemos "Voted" (no se ha dado el like porque el usuario que vota ya dio su like con anterioridad)
     else:
-        print("    Error: Mensaje con ID {} no encontrado en el archivo {}".format(msg_id, F_MSG)) # Escribir en consola el error
+        print("    Error: Mensaje con ID {} no encontrado en el archivo {}".format(msg_id, CONST['F_MSG'])) # Escribir en consola el error
         return "Error" # Devolvemos "Error" (no se ha dado el like porque el archivo no existe o se ha producido un fallo al leer/escribir en el)
 
 # Funcion para incrementar la reputacion de un usuario
 def increase_reputation(user_id):
     
+    lvl_up = 0 # Subida de nivel
     user_data = get_reputation(user_id) # Obtenemos los datos de reputacion del usuario con ese ID
-    user_data['Reputation'] = user_data['Reputation'] + GIVE_REP_POINTS # Damos los nuevos puntos de reputacion
+    user_data['Reputation'] = user_data['Reputation'] + CONST['GIVE_REP_POINTS'] # Damos los nuevos puntos de reputacion
     
     lvl = 9 # Iniciamos el posible nivel de usuario a 9
     for i in range(0, 8, 1): # De 0 a 8
-        if user_data['Reputation'] < REP_LVL_POINTS[i+1]: # Si los puntos de reputacion del usuario son inferiores a los puntos de reputacion necesarios para estar en el siguiente nivel i+1
+        if user_data['Reputation'] < CONST['REP_LVL_POINTS'][i+1]: # Si los puntos de reputacion del usuario son inferiores a los puntos de reputacion necesarios para estar en el siguiente nivel i+1
             lvl = i # Determinamos el nivel de usuario
             break # Interrumpimos y salimos del bucle
     
-    if REP_LVL[lvl] != user_data['Level']: # Si el nivel de usuario, correspondiente a la nueva reputacion, es distinto al nivel de usuario anterior
-        user_data['Level'] = REP_LVL[lvl] # Damos el nuevo rango/nivel al usuario
+    if CONST['REP_LVL'][lvl] != user_data['Level']: # Si el nivel de usuario, correspondiente a la nueva reputacion, es distinto al nivel de usuario anterior
+        user_data['Level'] = CONST['REP_LVL'][lvl] # Damos el nuevo rango/nivel al usuario
+        lvl_up = 1 # Se ha subido de nivel
     
-    json_update(F_USR, user_data, 'User_id') # Actualizamos en el archivo de usuarios con los datos de reputacion de dicho usuario
+    json_update(CONST['F_USR'], user_data, 'User_id') # Actualizamos en el archivo de usuarios con los datos de reputacion de dicho usuario
+
+    return lvl_up # Devolvemos si se ha subido de nivel o no
 
 # Funcion para determinar si un usuario ha votado con anterioridad a un mensaje
 def hasVoted(voter_id, msg_id):
     
-    content = json_read_content(F_MSG) # # Leer el contenido del archivo de mensajes
+    content = json_read_content(CONST['F_MSG']) # # Leer el contenido del archivo de mensajes
     
     for msg in content: # Para cada mensaje del archivo
         if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
@@ -246,7 +259,7 @@ def add_new_user(user_id, user_name):
     rep = OrderedDict([('User_id', 'Null'), ('User_name', 'Null'), ('Reputation', 100), ('Level', '0 - Noobie')]) # Estructura inicial basica de usuario
     rep['User_id'] = user_id # Insertamos el ID del usuario en la estructura
     rep['User_name'] = user_name # Insertamos el nombre/alias del usuario en la estructura
-    json_write_content(F_USR, rep) # Actualizamos el contenido del archivo de usuarios con los datos del nuevo usuario
+    json_write_content(CONST['F_USR'], rep) # Actualizamos el contenido del archivo de usuarios con los datos del nuevo usuario
 
 # Funcion para añadir un nuevo mensaje en el archivo de mensajes
 def add_new_message(msg_id, user_id, user_name, text_fragment, msg_date):
@@ -258,12 +271,12 @@ def add_new_message(msg_id, user_id, user_name, text_fragment, msg_date):
     msg['Data']['Text'] = text_fragment # Insertamos el ID del mensaje en la estructura
     msg['Data']['Date'] = msg_date # Insertamos el ID del mensaje en la estructura
     msg['Data']['Voters'][user_name] = user_id # Insertamos el ID del mensaje en la estructura
-    json_write_content(F_MSG, msg) # Actualizamos el contenido del archivo de mensajes con los datos del nuevo mensaje
+    json_write_content(CONST['F_MSG'], msg) # Actualizamos el contenido del archivo de mensajes con los datos del nuevo mensaje
 
 # Funcion para obtener el ID correspondiente al nobre/alias de un usuario
 def id_from_name(user_name):
     
-    reputations_data = json_read_content(F_USR) # Leer el contenido del archivo de usuarios
+    reputations_data = json_read_content(CONST['F_USR']) # Leer el contenido del archivo de usuarios
     
     for usr in reputations_data: # Para cada usuario del archivo
         if user_name == usr['User_name']: # Si el nombre de usuario coincide
@@ -296,19 +309,25 @@ def msg_nocmd(bot, update):
     user_id = str(update.message.from_user.id) # Adquirir el ID del usuario
     user_name = update.message.from_user.name # Adquirir el nombre/alias del usuario
     msg_date = (update.message.date).now().strftime("%Y-%m-%d %H:%M:%S") # Adquirir la fecha-hora en que se envio el mensaje
-    text = (update.message.text).split() # Adquirir una lista con las palabras que conforman el texto del mensaje
+    text = update.message.text # Adquirir el texto del mensaje
 
-    num_words = len(text) # Determinamos el numero de palabras del mensaje
-    if num_words == 1: # Si el mensaje solo tiene 1 palabra
-        text_fragment = "{}".format(text[0]) # Añadimos esa palabra al fragmento de texto que se insertara en los datos de mensaje
-    elif num_words == 2: # Si el mensaje tiene 2 palabras
-        text_fragment = "{} {}".format(text[0],text[1]) # Añadimos esas palabras al fragmento de texto que se insertara en los datos de mensaje
-    elif num_words == 3: # Si el mensaje tiene 3 palabras
-        text_fragment = "{} {} {}".format(text[0],text[1],text[2]) # Añadimos esas palabras al fragmento de texto que se insertara en los datos de mensaje
-    else:  # Si el mensaje tiene mas de 3 palabras
-        text_fragment = "{} {} {}...".format(text[0],text[1],text[2]) # Añadimos esas palabras seguidas de "..." al fragmento de texto que se insertara en los datos de mensaje
+    if len(text) > 50: # Si el numero de caracteres del texto es mayor a 50
+        text = text[0:50] # Truncamos a 50
 
-    add_new_message(msg_id, user_id, user_name, text_fragment, msg_date) # Añadimos el mensaje en el archivo de mensajes
+    words_text = text.split() # Separamos el texto en una lista de palabras
+    if len(words_text) == 1: # Si solo hay una palabra
+        for emoti in CONST['EMO_HAND_UP']: # Para cada emoticono de EMO_HAND_UP
+            if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
+                if not isinstance(emoti, unicode): # Si el valor no es unicode
+                    emoti = emoti.decode('utf8') # Decodificamos a unicode
+            if words_text[0] == emoti: # Si la palabra se corresponde con el emoticono de manita arriba
+                like(bot, update) # Hacemos like
+                break
+
+    text = str(text.encode('utf-8')) # Codificamos en UTF-8 y transformamos a string
+    text = "{}...".format(text) # Añadimos puntos suspensivos al final del fragmento de texto
+
+    add_new_message(msg_id, user_id, user_name, text, msg_date) # Añadimos el mensaje en el archivo de mensajes
 
     if not user_in_json(user_name): # Si el usuario que escribio el mensaje no se encuentra en el archivo de usuarios
         add_new_user(user_id, user_name) # Añadimos al usuario
@@ -328,40 +347,63 @@ def help(bot, update):
 # Manejador para el comando /like
 def like(bot, update):
 
-    user_name = update.message.from_user.name # Aquirir el nombre/alias del usuario que vota
-    user_id = str(update.message.from_user.id) # Adquirir el ID del usuario que vota
-    liked_user_name = update.message.reply_to_message.from_user.name # Adquirir el nombre/alias del usuario al que se vota (propietario del mensaje)
-    liked_user_id = str(update.message.reply_to_message.from_user.id) # Adquirir el ID del usuario al que se vota
-    liked_msg_id = str(update.message.reply_to_message.message_id) # Adquirir el ID del mensaje votado
+    error = False
+    chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
+    try:
+        user_name = update.message.from_user.name # Aquirir el nombre/alias del usuario que vota
+        user_id = str(update.message.from_user.id) # Adquirir el ID del usuario que vota
+        liked_user_name = update.message.reply_to_message.from_user.name # Adquirir el nombre/alias del usuario al que se vota (propietario del mensaje)
+        liked_user_id = str(update.message.reply_to_message.from_user.id) # Adquirir el ID del usuario al que se vota
+        liked_msg_id = str(update.message.reply_to_message.message_id) # Adquirir el ID del mensaje votado
 
-    if user_id != liked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
-        like_result = give_like(user_id, user_name, liked_msg_id) # Dar el like
-        if like_result == "Ok": # Si el like se dio de forma exitosa
-            liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
-            rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
-            actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
-            actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
-            actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
-            response = "A {} le mola este mensaje!\n\n`Likes: {}`\n\n————————————\nReputacion actual de {}:\n```\nPuntos: {}\nNivel: {}\n```".format(user_name, actual_likes, liked_user_name, actual_reputation, actual_level) # Respuesta del Bot
-        elif like_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
-            response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
-        else: # No se encontro el mesaje en el archivo de mensajes
-            response = "No se puede votar a ese mensaje" # Respuesta del Bot
-    else: # El usuario que vota es quien escribio ese mensaje
-            response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
-    
-    update.message.reply_text(response, reply_to_message_id=liked_msg_id, parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con la respuesta generada en el proceso
+        if user_id != liked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
+            like_result = give_like(user_id, user_name, liked_msg_id) # Dar el like
+            if like_result == "Ok": # Si el like se dio de forma exitosa
+                liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
+                rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
+                actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
+                actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
+                actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
+                emoti = u'\U0001f44d' # Emoti de manita arriba
+                if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
+                    emoti = u'\U0001f44d'.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
+                response = "{} x {}!".format(emoti, actual_likes) # Respuesta del Bot
+            elif like_result == "LVL_UP": # Se dio el like de forma exitosa y el usuario subio de nivel/rango
+                liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
+                rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
+                actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
+                actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
+                actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
+                emoti = u'\U0001f44d' # Emoti de manita arriba
+                if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
+                    emoti = u'\U0001f44d'.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
+                response = "{} x {}!".format(emoti, actual_likes) # Respuesta del Bot
+                lvl_up_msg = "{} subio de rango!!!\n————————————\n\nReputacion actual:\n```\nTotal de Likes recibidos: {}\nPuntos: {}\nNuevo rango: {}\n```".format(liked_user_name, (actual_reputation-100)//5, actual_reputation, actual_level) # Respuesta del Bot
+            elif like_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
+                response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
+            else: # No se encontro el mesaje en el archivo de mensajes
+                response = "No se puede votar a ese mensaje" # Respuesta del Bot
+        else: # El usuario que vota es quien escribio ese mensaje
+                response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
+    except:
+        error = True
+        update.message.reply_text("Tienes que usarlo en respuesta al mensaje de otro usuario") # El Bot responde al comando con el siguiete mensaje
+
+    if not error:
+        update.message.reply_text(response, reply_to_message_id=liked_msg_id, parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con la respuesta generada en el proceso
+        if like_result == "LVL_UP":
+            bot.send_message(chat_id=chat_id, text=lvl_up_msg, parse_mode=ParseMode.MARKDOWN) # El Bot envia el mesnaje de que el usuario ha subido de nivel
 
 # Manejador para el comando /reputation
 def reputation(bot, update, args):
 
+    chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     if len(args) == 1: # Si el comando presenta 1 argumento
         user_name = args[0] # Adquirir el nombre/alias del usuario (argumento)
-        chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
         user_id = id_from_name(user_name) # Adquirir el ID de usuario correspondiente a ese nombre/alias
         if user_id is not None: # Si se encontro al usuario en el archivo de usuarios
             user_reputation = get_reputation(user_id) # Obtener los datos de reputacion de dicho usuario
-            bot.send_message(chat_id=chat_id, text="Reputacion del usuario {}:\n————————————\n```\nPuntos: {}\nNivel: {}\n```".format(user_reputation['User_name'], user_reputation['Reputation'], user_reputation['Level']), parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con los datos de reputacion de dicho usuario
+            bot.send_message(chat_id=chat_id, text="Reputacion de {}:\n————————————\n```\nTotal de Likes recibidos: {}\nPuntos: {}\nRango: {}\n```".format(user_reputation['User_name'], (user_reputation['Reputation']-100)//5, user_reputation['Reputation'], user_reputation['Level']), parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con los datos de reputacion de dicho usuario
         else: # No se encontro al usuario en el archivo de usuarios
             bot.send_message(chat_id=chat_id, text="El usuario {} no se encuentra en este grupo o todavia no ha escrito ningun mensaje".format(user_name)) # El Bot responde al comando con el siguiete mensaje
     elif len(args) < 1: # Si el comando no presenta argumento alguno
@@ -376,7 +418,7 @@ def reputation(bot, update, args):
 def main():
     
     # Crear un manejador de eventos (updater) para el Bot con dicho Token, y obtener un planificador de manejadores (dispatcher)
-    updater = Updater(TOKEN)
+    updater = Updater(CONST['TOKEN'])
     dp = updater.dispatcher
     
     # Añadir al dispatcher un manejador de mensajes (no comandos)
@@ -391,8 +433,8 @@ def main():
     dp.add_handler(CommandHandler("like", like))
     dp.add_handler(CommandHandler("reputation", reputation, pass_args=True))
     
-    # Lanzar el Bot
-    updater.start_polling()
+    # Lanzar el Bot ignorando los mensajes pendientes (clean=True)
+    updater.start_polling(clean=True)
     
     # Parar la ejecucion de este hilo (Funcion principal), y esperar la llegada de mensajes que se trataran por los manejadores asincronos
     updater.idle()

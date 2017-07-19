@@ -1,35 +1,30 @@
 # -*- coding: utf-8 -*-
-# Script: Constants.py
-# Descripción: Telegram Bot that manage a reputation system of users in a group. It let give 
-#              "likes" to a user message and when the message get a minimun value of likes, the
-#              bot add some points reputation for that user.
-# Autor: José Ríos Rubio
-# Fecha: 01/07/2017
-# Version: 0.1
-##############################
-
-# Constants for the Bot
 '''
+Script:  MolaBot.py
+
+Descripcion:
+    Bot de Telegram que gestiona todo un sistema de reputaciones de los usuarios pertenecientes a
+    un grupo. Permite a un usuario, dar "Likes" a los mensajes de otros, y el numero global de
+    "Likes" (la suma de todos los likes de todos los mensajes de un mismo usuario) determinara los
+    puntos de reputacion que dicho usuario tiene.
+
+Autor:   Jose Rios Rubio
+Fecha:   19/07/2017
+Version: 1.1
+'''
+
+# Constantes para el Bot
 CONST = {
-    'TOKEN': '440644484:AAHiW2jWHB-KKKt6XbosdnSWpRelPX4H5YY', # To set by the user (get It with @BotFather)
-    'MASTER_ID': 231874677, # To set by user (get It with @get_id_bot)
-    'ADMINS_ID': [231874677],
-    'F_USR' : './data/users.json',
-    'F_MSG' : './data/messages.json',
-    'GIVE_REP_MOD' : 5, # When a msg reach module 5 likes (5, 10, 15 ...), give reputation to the user
-    'GIVE_REP_POINTS' : 5, # Reputations per GIVE_REP_MOD likes. Actually, give same 5 reputation points for every 5 likes obtained in a msg
-    'REP_LVL_POINTS' : [100, 200, 350, 500, 700, 1000, 1500, 2500, 5000, 10000],
-    'REP_LVL' : ['0 - Noobie', '1 - Novice', '2 - Second class', '3 - First class', '4 - Captain', '5 - General', '6 - Pro', '7 - Master', '8 - King', '9 - God']
+    'PYTHON' : 2, # Compatibiidad con version de python (2 o 3)
+    'TOKEN': 'XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', # A establecer por el usuario (obtener de @BotFather)
+    'MASTER_ID': NNNNNNNNN, # A establecer por el usuario (obtener de @get_id_bot)
+    'ADMINS_ID': [NNNNNNNNN], # ID de los Admins
+    'F_USR' : './data/users.json', # Nombre del archivo json de usuarios
+    'F_MSG' : './data/messages.json', # Nombre del archivo json de mensajes
+    'GIVE_REP_MOD' : 5, # Cuando un mensaje alcanza un modulo de 5 en sus likes (5, 10, 15 ...), dar reputacion al usuario
+    'GIVE_REP_POINTS' : 5, # Reputacion por GIVE_REP_MOD likes. Actualmente, dar los mismos 5 puntos de reputacion por cada like obtenido en un mensaje
+    'REP_LVL_POINTS' : [100, 200, 350, 500, 700, 1000, 1500, 2500, 5000, 10000], # Puntos correspondientes a los niveles/rangos de reputacion
+    'REP_LVL' : ['0 - Noobie', '1 - Novice', '2 - Second class', '3 - First class', '4 - Captain', '5 - General', '6 - Pro', '7 - Master', '8 - King', '9 - God'], # Niveles/Rangos de reputacion
+    'EMO_HAND_UP' : ['👍', u'\U0001f44d', '👍🏻', u'\U0001f44d\U0001f3fb', '👍🏼', u'\U0001f44d\U0001f3fc', '👍🏽', u'\U0001f44d\U0001f3fd', '👍🏾', u'\U0001f44d\U0001f3fe', '👍🏿', u'\U0001f44d\U0001f3ff'], # Lista de emoticono de manita arriba
+    'EMO_HAND_DOWN' : ['👎', u'\U0001f44e', '👎🏻', u'\U0001f44e\U0001f3fb', '👎🏼', u'\U0001f44e\U0001f3fc', '👎🏽', u'\U0001f44e\U0001f3fd', '👎🏾', u'\U0001f44e\U0001f3fe', '👎🏿', u'\U0001f44e\U0001f3ff'] # Lista de emoticono de manita abajo
 }
-'''
-
-TOKEN = "440644484:AAHiW2jWHB-KKKt6XbosdnSWpRelPX4H5YY" # To set by the user (get It with @BotFather)
-MASTER_ID = 231874677 # To set by user (get It with @get_id_bot)
-ADMINS_ID = [231874677]
-F_USR = './data/users.json'
-F_MSG = './data/messages.json'
-GIVE_REP_MOD = 5 # When a msg reach module 5 likes (5, 10, 15 ...), give reputation to the user
-GIVE_REP_POINTS = 5 # Reputations per GIVE_REP_MOD likes. Actually, give same 5 reputation points for every 5 likes obtained in a msg
-REP_LVL_POINTS = [100, 200, 350, 500, 700, 1000, 1500, 2500, 5000, 10000]
-REP_LVL = ['0 - Recien llegado (Noob)', '1 - Novato y a mucha honra!', '2 - El que se queda en las sombras', '3 - El que pide mas que ayuda xD', '4 - El que ayuda de vez en cuando', '5 - El que controla del tema', '6 - El Pro del codigo', '7 - Capitan del Grupo', '8 - El ', '9 - God']
-#REP_LVL = ['0 - Noobie', '1 - Novice', '2 - Second class', '3 - First class', '4 - Captain', '5 - General', '6 - Pro', '7 - Master', '8 - King', '9 - God']

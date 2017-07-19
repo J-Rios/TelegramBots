@@ -256,7 +256,7 @@ def hasVoted(voter_id, msg_id):
 # Funcion para añadir un nuevo usuario al archivo de usuarios
 def add_new_user(user_id, user_name):
     
-    rep = OrderedDict([('User_id', 'Null'), ('User_name', 'Null'), ('Reputation', 100), ('Level', '0 - Noobie')]) # Estructura inicial basica de usuario
+    rep = OrderedDict([('User_id', 'Null'), ('User_name', 'Null'), ('Reputation', 100), ('Level', CONST['REP_LVL'][0])]) # Estructura inicial basica de usuario
     rep['User_id'] = user_id # Insertamos el ID del usuario en la estructura
     rep['User_name'] = user_name # Insertamos el nombre/alias del usuario en la estructura
     json_write_content(CONST['F_USR'], rep) # Actualizamos el contenido del archivo de usuarios con los datos del nuevo usuario

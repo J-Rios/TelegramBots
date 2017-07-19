@@ -16,13 +16,11 @@ Version: 1.1
 ### Librerias ###
 
 # Importacion de librerias
-import os
-import json
+import TSjson
 import datetime
 
 # Importacion desde librerias
 from Constants import CONST
-from threading import Lock
 from collections import OrderedDict
 from telegram import MessageEntity, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, \
@@ -31,154 +29,17 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Regex
 ##############################
 
 ### Variables Globales ###
-lock = Lock() # Mutex para los archivos
-#lock_usr = Lock() # Mutex para el archivo de usuarios
-#lock_msg = Lock() # Mutex para el archivo de mensajes
+fjson_usr = TSjson.TSjson(CONST['F_USR']) # Objeto de la clase TSjson para el manejo seguro del archivo de usuarios
+fjson_msg = TSjson.TSjson(CONST['F_MSG']) # Objeto de la clase TSjson para el manejo seguro del archivo de mensajes
 
 ##############################
 
-### Funciones "Back-level" para lectura/escritura de archivos json generales ###
-
-# Funcion para leer de un archivo json
-def json_read(file):
-    
-    try: # Intentar abrir el archivo
-        lock.acquire() # Cerramos (adquirimos) el mutex
-        if not os.path.exists(file): # Si el archivo no existe
-            read = {} # Devolver un diccionario vacio
-        else: # Si el archivo existe
-            if not os.stat(file).st_size: # Si el archivo esta vacio
-                read = {} # Devolver un diccionario vacio
-            else: # El archivo existe y tiene contenido
-                with open(file, "r") as f: # Abrir el archivo en modo lectura
-                    read = json.load(f, object_pairs_hook=OrderedDict) # Leer todo el archivo y devolver la lectura de los datos json usando un diccionario ordenado
-    except: # Error intentando abrir el archivo
-        print("    Error cuando se abria para lectura, el archivo {}".format(file)) # Escribir en consola el error
-        read = None # Devolver None
-    finally: # Para acabar, haya habido excepcion o no
-        lock.release() # Abrimos (liberamos) el mutex
-    
-    return read # Devolver el resultado de la lectura de la funcion
-
-# Funcion para escribir en un archivo json
-def json_write(file, data):
-    
-    # Si no existe el directorio que contiene los archivos de datos, lo creamos
-    directory = os.path.dirname(file) # Obtener el nombre del directorio que contiene al archivo
-    if not os.path.exists(directory): # Si el directorio (ruta) no existe
-        os.makedirs(directory) # Creamos el directorio
-    
-    try: # Intentar abrir el archivo
-        lock.acquire() # Cerramos (adquirimos) el mutex
-        with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-            #if CONST['PYTHON'] == 2: # Compatibilidad con Python 2
-            #    f.write("\n{}\n".format(json.dumps(data, ensure_ascii=False, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
-            #else:
-            f.write("\n{}\n".format(json.dumps(data, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
-    except: # Error intentando abrir el archivo
-        print("    Error cuando se abria para escritura, el archivo {}".format(file)) # Escribir en consola el error
-    finally: # Para acabar, haya habido excepcion o no
-        lock.release() # Abrimos (liberamos) el mutex
-
-# Funcion para leer el contenido de un archivo json (datos json)
-def json_read_content(file):
-    
-    read = json_read(file) # Leer todo el archivo json
-    
-    if read != {}: # Si la lectura no es vacia
-        return read['Content'] # Devolvemos el contenido de la lectura (datos json)
-    else: # Lectura vacia
-        return read # Devolvemos la lectura vacia
-
-# Funcion para añadir al contenido de un archivo json, nuevos datos json
-def json_write_content(file, data):
-    
-    # Si no existe el directorio que contiene los archivos de datos, lo creamos
-    directory = os.path.dirname(file) # Obtener el nombre del directorio que contiene al archivo
-    if not os.path.exists(directory): # Si el directorio (ruta) no existe
-        os.makedirs(directory) # Creamos el directorio
-    
-    try: # Intentar abrir el archivo
-        lock.acquire() # Cerramos (adquirimos) el mutex
-        
-        if os.path.exists(file) and os.stat(file).st_size: # Si el archivo existe y no esta vacio
-            with open(file, "r") as f: # Abrir el archivo en modo lectura
-                content = json.load(f, object_pairs_hook=OrderedDict) # Leer todo el archivo y devolver la lectura de los datos json usando un diccionario ordenado
-
-            content['Content'].append(data) # Añadir los nuevos datos al contenido del json
-            
-            with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-                f.write("\n{}\n".format(json.dumps(content, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
-        else: # El archivo no existe o esta vacio
-            with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-                f.write('\n{\n    "Content": []\n}\n') # Escribir la estructura de contenido basica
-            
-            with open(file, "r") as f: # Abrir el archivo en modo lectura
-                content = json.load(f) # Leer todo el archivo
-
-            content['Content'].append(data) # Añadir los datos al contenido del json
-
-            with open(file, "w") as f:  # Abrir el archivo en modo escritura (sobre-escribe)
-                f.write("\n{}\n".format(json.dumps(content, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
-    except IOError as e:
-        print("I/O error({0}): {1}".format(e.errno, e.strerror))
-    except ValueError:
-        print("Could not convert data to an integer.")
-    except: # Error intentando abrir el archivo
-        print("    Error cuando se abria para escritura, el archivo {}".format(file)) # Escribir en consola el error
-    finally: # Para acabar, haya habido excepcion o no
-        lock.release() # Abrimos (liberamos) el mutex
-
-# Funcion para limpiar todos los datos de un archivo json (no se usa actualmente)
-def json_clear_content(file):
-    
-    try: # Intentar abrir el archivo
-        lock.acquire() # Cerramos (adquirimos) el mutex
-        if os.path.exists(file) and os.stat(file).st_size: # Si el archivo existe y no esta vacio
-            with open(file, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-                f.write('\n{\n    "Content": [\n    ]\n}\n') # Escribir la estructura de contenido basica
-    except: # Error intentando abrir el archivo
-        print("    Error cuando se abria para escritura, el archivo {}".format(file)) # Escribir en consola el error
-    finally: # Para acabar, haya habido excepcion o no
-        lock.release() # Abrimos (liberamos) el mutex
-
-# Funcion para actualizar datos de un archivo json
-# [Nota: cada dato json necesita al menos 1 elemento identificador unico (uide), si no es asi, la actualizacion se producira en el primer elemento que se encuentre]
-def json_update(file, data, uide):
-    
-    file_data = json_read(file) # Leer todo el archivo json
-    
-    # Buscar la posicion del dato en el contenido json
-    found = 0 # Posicion encontrada a 0
-    i = 0 # Posicion inicial del dato a 0
-    for msg in file_data['Content']: # Para cada mensaje en el archivo json
-        if data[uide] == msg[uide]: # Si el mensaje tiene el UIDE buscado
-            found = 1 # Marcar que se ha encontrado la posicion
-            break # Interrumpir y salir del bucle
-        i = i + 1 # Incrementar la posicion del dato
-    
-    if found: # Si se encontro en el archivo json datos con el UIDE buscado
-        file_data['Content'][i] = data # Actualizamos los datos json que contiene ese UIDE
-        json_write(file, file_data) # Escribimos el dato actualizado en el archivo json
-    else: # No se encontro ningun dato json con dicho UIDE
-        print("    Error: UIDE no encontrado en el archivo, o el archivo no existe") # Escribir en consola el error
-
-# funcion para eliminar un archivo json (no se usa actualmente)
-def json_delete(file):
-
-    lock.acquire() # Cerramos (adquirimos) el mutex
-    if os.path.exists(file): # Si el archivo existe
-        os.remove(file) # Eliminamos el archivo
-    lock.release() # Abrimos (liberamos) el mutex
-
-##############################
-
-### Funciones "Top-level" para leer-escribir los archivos json especificos de este programa ###
+### Funciones para leer-escribir los archivos json especificos de este programa ###
 
 # Funcion para obtener los datos de reputacion de un usuario a traves de un ID
 def get_reputation(user_id):
     
-    content = json_read_content(CONST['F_USR']) # Leer el contenido del archivo de usuarios
+    content = fjson_usr.read_content() # Leer el contenido del archivo de usuarios
     
     for usr in content: # Para cada usuario del archivo
         if user_id == usr['User_id']: # Si el usuario presenta el ID que estamos buscando
@@ -189,7 +50,7 @@ def get_reputation(user_id):
 # Funcion para obtener los datos de likes de un mensaje a traves de un ID
 def get_likes(msg_id):
     
-    content = json_read_content(CONST['F_MSG']) # Leer el contenido del archivo de mensajes
+    content = fjson_msg.read_content() # Leer el contenido del archivo de mensajes
     
     for msg in content: # Para cada mensaje del archivo
         if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
@@ -205,7 +66,7 @@ def give_like(voter_id, voter_name, msg_id):
         if not hasVoted(voter_id, msg_id): # Si el usuario que vota aun no ha votado
             likes_data['Data']['Likes'] = likes_data['Data']['Likes'] + 1 # Dar el like
             likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
-            json_update(CONST['F_MSG'], likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
+            fjson_msg.update(likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
             
             if likes_data['Data']['Likes'] % CONST['GIVE_REP_MOD'] : # Si el numero de likes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...)
                 lvl_up = increase_reputation(likes_data['Data']['User_id']) # Incrementamos la reputacion
@@ -237,14 +98,14 @@ def increase_reputation(user_id):
         user_data['Level'] = CONST['REP_LVL'][lvl] # Damos el nuevo rango/nivel al usuario
         lvl_up = 1 # Se ha subido de nivel
     
-    json_update(CONST['F_USR'], user_data, 'User_id') # Actualizamos en el archivo de usuarios con los datos de reputacion de dicho usuario
+    fjson_usr.update(user_data, 'User_id') # Actualizamos en el archivo de usuarios con los datos de reputacion de dicho usuario
 
     return lvl_up # Devolvemos si se ha subido de nivel o no
 
 # Funcion para determinar si un usuario ha votado con anterioridad a un mensaje
 def hasVoted(voter_id, msg_id):
     
-    content = json_read_content(CONST['F_MSG']) # # Leer el contenido del archivo de mensajes
+    content = fjson_msg.read_content() # # Leer el contenido del archivo de mensajes
     
     for msg in content: # Para cada mensaje del archivo
         if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
@@ -259,7 +120,7 @@ def add_new_user(user_id, user_name):
     rep = OrderedDict([('User_id', 'Null'), ('User_name', 'Null'), ('Reputation', 100), ('Level', CONST['REP_LVL'][0])]) # Estructura inicial basica de usuario
     rep['User_id'] = user_id # Insertamos el ID del usuario en la estructura
     rep['User_name'] = user_name # Insertamos el nombre/alias del usuario en la estructura
-    json_write_content(CONST['F_USR'], rep) # Actualizamos el contenido del archivo de usuarios con los datos del nuevo usuario
+    fjson_usr.write_content(rep) # Actualizamos el contenido del archivo de usuarios con los datos del nuevo usuario
 
 # Funcion para añadir un nuevo mensaje en el archivo de mensajes
 def add_new_message(msg_id, user_id, user_name, text_fragment, msg_date):
@@ -271,12 +132,12 @@ def add_new_message(msg_id, user_id, user_name, text_fragment, msg_date):
     msg['Data']['Text'] = text_fragment # Insertamos el ID del mensaje en la estructura
     msg['Data']['Date'] = msg_date # Insertamos el ID del mensaje en la estructura
     msg['Data']['Voters'][user_name] = user_id # Insertamos el ID del mensaje en la estructura
-    json_write_content(CONST['F_MSG'], msg) # Actualizamos el contenido del archivo de mensajes con los datos del nuevo mensaje
+    fjson_msg.write_content(msg) # Actualizamos el contenido del archivo de mensajes con los datos del nuevo mensaje
 
 # Funcion para obtener el ID correspondiente al nobre/alias de un usuario
 def id_from_name(user_name):
     
-    reputations_data = json_read_content(CONST['F_USR']) # Leer el contenido del archivo de usuarios
+    reputations_data = fjson_usr.read_content() # Leer el contenido del archivo de usuarios
     
     for usr in reputations_data: # Para cada usuario del archivo
         if user_name == usr['User_name']: # Si el nombre de usuario coincide

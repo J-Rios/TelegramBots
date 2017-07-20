@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   20/07/2017
-Version: 1.3
+Fecha:   21/07/2017
+Version: 1.4
 '''
 
 import os

@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   20/07/2017
-Version: 1.3
+Fecha:   21/07/2017
+Version: 1.4
 '''
 
 ### Librerias ###
@@ -69,10 +69,11 @@ def give_like(voter_id, voter_name, msg_id):
             likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
             fjson_msg.update(likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
             
-            if likes_data['Data']['Likes'] % CONST['GIVE_REP_MOD'] : # Si el numero de likes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...)
-                lvl_up = increase_reputation(likes_data['Data']['User_id']) # Incrementamos la reputacion
-                if lvl_up: # Si se ha subido de nivel
-                    return "LVL_UP" # Devolvemos "LVL_UP" (se ha subido de nivel)
+            #if not likes_data['Data']['Likes'] % CONST['GIVE_REP_MOD'] : # Si el numero de likes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...) [Dar puntos de reputacion cada 5 likes]
+            lvl_up = increase_reputation(likes_data['Data']['User_id']) # Incrementamos la reputacion
+            if lvl_up: # Si se ha subido de nivel
+                return "LVL_UP" # Devolvemos "LVL_UP" (se ha subido de nivel)
+
             return "Ok" # Devolvemos "Ok" (se ha dado el like)
         else: # El usuario que vota ya dio su like con anterioridad
             print("    El votante ya voto con anterioridad") # Escribir en consola
@@ -91,6 +92,12 @@ def give_dislike(voter_id, voter_name, msg_id):
             likes_data['Data']['Dislikes'] = likes_data['Data']['Dislikes'] + 1 # Dar el dislike
             likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
             fjson_msg.update(likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (dislikes y votantes)
+            
+            #if not likes_data['Data']['Dislikes'] % CONST['GIVE_REP_MOD'] : # Si el numero de dislikes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...) [Quitar puntos de reputacion cada 5 dislikes]
+            lvl_down = decrease_reputation(likes_data['Data']['User_id']) # Decrementamos la reputacion
+            if lvl_down: # Si se ha subido de nivel
+                return "LVL_DOWN" # Devolvemos "LVL_UP" (se ha subido de nivel)
+
             return "Ok" # Devolvemos "Ok" (se ha dado el dislike)
         else: # El usuario que vota ya dio su like con anterioridad
             print("    El votante ya voto con anterioridad") # Escribir en consola
@@ -120,6 +127,27 @@ def increase_reputation(user_id):
     fjson_usr.update(user_data, 'User_id') # Actualizamos en el archivo de usuarios con los datos de reputacion de dicho usuario
 
     return lvl_up # Devolvemos si se ha subido de nivel o no
+
+# Funcion para decrementar la reputacion de un usuario
+def decrease_reputation(user_id):
+    
+    lvl_down = 0 # Bajada de nivel
+    user_data = get_reputation(user_id) # Obtenemos los datos de reputacion del usuario con ese ID
+    user_data['Reputation'] = user_data['Reputation'] - CONST['GIVE_REP_POINTS'] # Quitamos puntos de reputacion
+    
+    lvl = 9 # Iniciamos el posible nivel de usuario a 9
+    for i in range(0, 8, 1): # De 0 a 8
+        if user_data['Reputation'] < CONST['REP_LVL_POINTS'][i+1]: # Si los puntos de reputacion del usuario son inferiores a los puntos de reputacion necesarios para estar en el siguiente nivel i+1
+            lvl = i # Determinamos el nivel de usuario
+            break # Interrumpimos y salimos del bucle
+    
+    if CONST['REP_LVL'][lvl] != user_data['Level']: # Si el nivel de usuario, correspondiente a la nueva reputacion, es distinto al nivel de usuario anterior
+        user_data['Level'] = CONST['REP_LVL'][lvl] # Damos el nuevo rango/nivel al usuario
+        lvl_down = 1 # Se ha subido de nivel
+    
+    fjson_usr.update(user_data, 'User_id') # Actualizamos en el archivo de usuarios con los datos de reputacion de dicho usuario
+
+    return lvl_down # Devolvemos si se ha subido de nivel o no
 
 # Funcion para determinar si un usuario ha votado con anterioridad a un mensaje
 def hasVoted(voter_id, msg_id):
@@ -193,19 +221,46 @@ def check_and_vote(word, bot, update):
                 vote = True
                 break
 
-def get_top_users():
+# Funcion para obtener una lista con los 10 mejores usuarios (mayor reputacion) del grupo
+def get_top_best_users():
     
     rep = [] # Creamos una lista vacia para almacenar la tupla (nombre, reputacion, nivel) de cada usuario
     
     reputations_data = fjson_usr.read_content() # Leer el contenido del archivo de usuarios
     for usr in reputations_data: # Para cada usuario del archivo de usuarios
-        rep.append((usr['User_name'], usr['Reputation'], usr['Level'])) # Añadir la reputacion de a la lista
+        rep.append((usr['User_id'], usr['User_name'], usr['Reputation'], usr['Level'])) # Añadir la reputacion de a la lista
 
-    rep = sorted(rep, reverse=True, key=itemgetter(1))
+    rep = sorted(rep, reverse=True, key=itemgetter(2)) # Reordenamos la lista de mayor a menor (reverse) segun las reputaciones (itemgetter(2))
     rep = rep[0:10] # Nos quedamos solo con los 10 primeros
 
-    return rep
+    return rep # Devolver la lista
+
+# Funcion para obtener una lista con los 5 usuarios que se encuentrar por encima y por debajo de cierto usuario (lista de 10 usuario)
+def get_top_of_user(usr_id):
+
+    rep = [] # Creamos una lista vacia para almacenar la tupla (nombre, reputacion, nivel) de cada usuario
+
+    reputations_data = fjson_usr.read_content() # Leer el contenido del archivo de usuarios
+    for usr in reputations_data: # Para cada usuario del archivo de usuarios
+        rep.append((usr['User_id'], usr['User_name'], usr['Reputation'], usr['Level'])) # Añadir la reputacion de a la lista
+
+    rep = sorted(rep, reverse=True, key=itemgetter(2)) # Reordenamos la lista de mayor a menor (reverse) segun las reputaciones (itemgetter(2))
+
+    pos_user = 0 # Posicion inicial desde la que buscar usuario
+    for usr in rep: # Para cada usuario de la lista obtenida
+        if usr[0] == usr_id: # Si el ID del usuario es el del usuario que buscamos
+            break # Interrumpimos y salimos del bucle
+        pos_user = pos_user + 1 # Incrementamos la posicion
+
+    if pos_user <= 4: # Si el usuario se encuentra entre los 4 primeros
+        rep = rep[0:10] # Nos quedamos solo con los primeros 10 usuarios
+    else:
+        rep = rep[pos_user-4:pos_user+4] # Nos quedamos solo con los usuarios cercanos (los 4 que estan por encima y los 4 que estan por debajo)
     
+    rep.append(pos_user) # Añadimos en la ultima posicion de la lista, la posicion del usuario
+
+    return rep # Devolver la lista
+
 
 
 ##############################
@@ -258,6 +313,7 @@ def help(bot, update):
 # Manejador para el comando /like
 def like(bot, update):
 
+    like_result = ""
     error = False
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     try:
@@ -269,7 +325,7 @@ def like(bot, update):
 
         if user_id != liked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
             like_result = give_like(user_id, user_name, liked_msg_id) # Dar el like
-            if like_result == "Ok": # Si el like se dio de forma exitosa
+            if (like_result == "Ok") or (like_result == "LVL_UP"): # Si el like se dio de forma exitosa
                 liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
                 actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
                 actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
@@ -279,49 +335,42 @@ def like(bot, update):
                     emoji_like = emoji_like.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
                     emoji_dislike = emoji_dislike.encode('utf8') # Codificamos a utf-8 el emoti de manita abajo
                 response = "{} x {}        {} x {}".format(emoji_like, actual_likes, emoji_dislike, actual_dislikes) # Respuesta del Bot
-            elif like_result == "LVL_UP": # Se dio el like de forma exitosa y el usuario subio de nivel/rango
-                rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
-                actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
-                actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
-                liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
-                actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
-                actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
-                emoji_like = CONST['EMO_HAND_UP'][1] # Emoti de manita arriba
-                emoji_dislike = CONST['EMO_HAND_DOWN'][1] # Emoji de manita abajo
-                if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
-                    emoji_like = emoji_like.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
-                    emoji_dislike = emoji_dislike.encode('utf8') # Codificamos a utf-8 el emoti de manita abajo
-                response = "{} x {}        {} x {}".format(emoji_like, actual_likes, emoji_dislike, actual_dislikes) # Respuesta del Bot
-                lvl_up_msg = "{} subio de rango!!!\n————————————\n\nReputacion actual:\n```\nTotal de Likes recibidos: {}\nPuntos: {}\nNuevo rango: {}\n```".format(liked_user_name, (actual_reputation-100)//5, actual_reputation, actual_level) # Respuesta del Bot
+                if like_result == "LVL_UP": # Si se bajo de nivel con el dislike
+                    rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
+                    actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
+                    actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
+                    lvl_up_msg = "{} sube de rango!!!\n————————————\nReputacion actual:\n```\nPuntos de reputacion: {}\nNuevo rango: {}\n```".format(liked_user_name, actual_reputation, actual_level) # Respuesta del Bot
             elif like_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
             else: # No se encontro el mesaje en el archivo de mensajes
                 response = "No se puede votar a ese mensaje" # Respuesta del Bot
         else: # El usuario que vota es quien escribio ese mensaje
-                response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
+            response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
     except:
-        error = True
+        error = True # Se produjo algun error
         update.message.reply_text("Tienes que usarlo en respuesta al mensaje de otro usuario") # El Bot responde al comando con el siguiente mensaje
 
-    if not error:
+    if not error: # Si no se produjo error con lo anterior
         update.message.reply_text(response, reply_to_message_id=liked_msg_id, parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con la respuesta generada en el proceso
-        if like_result == "LVL_UP":
+        if like_result == "LVL_UP": # Si se subio de nivel
             bot.send_message(chat_id=chat_id, text=lvl_up_msg, parse_mode=ParseMode.MARKDOWN) # El Bot envia el mesnaje de que el usuario ha subido de nivel
 
 # Manejador para el comando /dislike
 def dislike(bot, update):
 
+    dislike_result = ""
     error = False
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     try:
         user_name = update.message.from_user.name # Aquirir el nombre/alias del usuario que vota
         user_id = str(update.message.from_user.id) # Adquirir el ID del usuario que vota
+        disliked_user_name = update.message.reply_to_message.from_user.name # Adquirir el nombre/alias del usuario al que se vota (propietario del mensaje)
         disliked_user_id = str(update.message.reply_to_message.from_user.id) # Adquirir el ID del usuario al que se vota
         disliked_msg_id = str(update.message.reply_to_message.message_id) # Adquirir el ID del mensaje votado
 
         if user_id != disliked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
             dislike_result = give_dislike(user_id, user_name, disliked_msg_id) # Dar el dislike
-            if dislike_result == "Ok": # Si el like se dio de forma exitosa
+            if (dislike_result == "Ok") or (dislike_result == "LVL_DOWN"): # Si el dislike se dio de forma exitosa
                 liks = get_likes(disliked_msg_id) # Obtener los datos de likes de ese mensaje
                 actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
                 actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
@@ -331,19 +380,26 @@ def dislike(bot, update):
                     emoji_like = emoji_like.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
                     emoji_dislike = emoji_dislike.encode('utf8') # Codificamos a utf-8 el emoti de manita abajo
                 response = "{} x {}        {} x {}".format(emoji_like, actual_likes, emoji_dislike, actual_dislikes) # Respuesta del Bot
+                if dislike_result == "LVL_DOWN": # Si se bajo de nivel con el dislike
+                    rep = get_reputation(disliked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
+                    actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
+                    actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
+                    lvl_down_msg = "{} baja de rango!!!\n————————————\nReputacion actual:\n```\nPuntos de reputacion: {}\nNuevo rango: {}\n```".format(disliked_user_name, actual_reputation, actual_level) # Respuesta del Bot
             elif dislike_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
             else: # No se encontro el mesaje en el archivo de mensajes
                 response = "No se puede votar a ese mensaje" # Respuesta del Bot
         else: # El usuario que vota es quien escribio ese mensaje
-                response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
+            response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
     except:
-        error = True
+        error = True # Se produjo algun error
         update.message.reply_text("Tienes que usarlo en respuesta al mensaje de otro usuario") # El Bot responde al comando con el siguiente mensaje
 
-    if not error:
+    if not error: # Si no se produjo error con lo anterior
         update.message.reply_text(response, reply_to_message_id=disliked_msg_id, parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con la respuesta generada en el proceso
-        
+        if dislike_result == "LVL_DOWN": # Si se bajo de nivel
+            bot.send_message(chat_id=chat_id, text=lvl_down_msg, parse_mode=ParseMode.MARKDOWN) # El Bot envia el mesnaje de que el usuario ha subido de nivel
+
 # Manejador para el comando /reputation
 def reputation(bot, update, args):
 
@@ -353,7 +409,7 @@ def reputation(bot, update, args):
         user_id = id_from_name(user_name) # Adquirir el ID de usuario correspondiente a ese nombre/alias
         if user_id is not None: # Si se encontro al usuario en el archivo de usuarios
             user_reputation = get_reputation(user_id) # Obtener los datos de reputacion de dicho usuario
-            bot.send_message(chat_id=chat_id, text="Reputacion de {}:\n————————————\n```\nTotal de Likes recibidos: {}\nPuntos: {}\nRango: {}\n```".format(user_reputation['User_name'], (user_reputation['Reputation']-100)//5, user_reputation['Reputation'], user_reputation['Level']), parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con los datos de reputacion de dicho usuario
+            bot.send_message(chat_id=chat_id, text="Reputacion de {}:\n————————————\n```\nPuntos de reputacion: {}\nRango: {}\n```".format(user_reputation['User_name'], user_reputation['Reputation'], user_reputation['Level']), parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con los datos de reputacion de dicho usuario
         else: # No se encontro al usuario en el archivo de usuarios
             bot.send_message(chat_id=chat_id, text="El usuario {} no se encuentra en este grupo o todavia no ha escrito ningun mensaje".format(user_name)) # El Bot responde al comando con el siguiente mensaje
     elif len(args) < 1: # Si el comando no presenta argumento alguno
@@ -361,21 +417,53 @@ def reputation(bot, update, args):
     else: # El comando presenta más de 1 argumento
         bot.send_message(chat_id=chat_id, text="Demasiados argumentos suministrados, el comando solo acepta 1 argumento el nombre/alias del usuario.\n\nPor ejemplo:\n/reputation @mrguy") # El Bot responde al comando con el siguiente mensaje
 
+last_time = datetime.datetime.now() - datetime.timedelta(minutes=3) # Momento actual - 3 minutos
 # Manejador para el comando /top
 def top(bot, update):
+    global last_time
 
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     response = "Top de los mejores usuarios:\n————————————\n" # Encabezado del mensaje de respuesta
 
-    top_data = get_top_users() # Obtener la lista de usuarios en el Top
+    actual_time = datetime.datetime.now() # Determinamos el momento actual
+    if actual_time >= last_time + datetime.timedelta(minutes=3): # Si el momento actual es mayor al ultimo momento en el que se ejecuto el comando + 3 min (Si han pasado 3 minutos desde la ultima vez que se ejecuto el comando)
+        last_time = actual_time # Actualizamos el momento anterior con el valor actual
 
-    i = 1 # Posicion
+        top_data = get_top_best_users() # Obtener la lista de usuarios en el Top
+
+        i = 1 # Posicion
+        for user in top_data: # Para cada usuario del top
+            response = response + "{} - {}: {}\n\n".format(i, user[1], user[2]) # Construir la respuesta con los datos del usuario
+            i = i + 1 # Incrementar la posicion
+        
+        response = response[0:4095] # Truncar al maximo numero de caracteres posibles en un mensaje telegram
+    else:
+        response = "Este comando solo puede ser ejecutado 1 vez cada 3 minutos"
+
+    bot.send_message(chat_id=chat_id, text=response) # El Bot responde al comando con mensaje
+
+# Manejador para el comando /mytop
+def mytop(bot, update):
+
+    chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
+    user_id = str(update.message.from_user.id) # Adquirir el ID del usuario
+    response = "Top de los mejores usuarios:\n————————————\n" # Encabezado del mensaje de respuesta
+
+    top_data = get_top_of_user(user_id) # Obtenemos una lista con los 10 usuarios cercanos al usuario que hace la peticion
+    pos_user = top_data.pop() + 1 # Extraemos el ultimo elemento de la lista, que se corresponde con la posicion del usuario
+
+    if pos_user <= 4:
+        i = 1
+    else:
+        i = pos_user-4 # Posicion
+    
     for user in top_data: # Para cada usuario del top
-        response = response + "{} - {}: {}\n\n".format(i, user[0], user[1]) # Construir la respuesta con los datos del usuario
+        response = response + "{} - {}: {}\n\n".format(i, user[1], user[2]) # Construir la respuesta con los datos del usuario
         i = i + 1 # Incrementar la posicion
     
     response = response[0:4095] # Truncar al maximo numero de caracteres posibles en un mensaje telegram
     bot.send_message(chat_id=chat_id, text=response) # El Bot responde al comando con mensaje
+
 
 ##############################
 
@@ -400,6 +488,7 @@ def main():
     dp.add_handler(CommandHandler("dislike", dislike))
     dp.add_handler(CommandHandler("reputation", reputation, pass_args=True))
     dp.add_handler(CommandHandler("top", top))
+    dp.add_handler(CommandHandler("mytop", mytop))
     
     # Lanzar el Bot ignorando los mensajes pendientes (clean=True)
     updater.start_polling(clean=True)

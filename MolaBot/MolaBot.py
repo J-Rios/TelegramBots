@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   19/07/2017
-Version: 1.2
+Fecha:   20/07/2017
+Version: 1.3
 '''
 
 ### Librerias ###
@@ -21,6 +21,7 @@ import datetime
 
 # Importacion desde librerias
 from Constants import CONST
+from operator import itemgetter
 from collections import OrderedDict
 from telegram import MessageEntity, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, \
@@ -81,6 +82,24 @@ def give_like(voter_id, voter_name, msg_id):
         print("    Error: Mensaje con ID {} no encontrado en el archivo {}".format(msg_id, CONST['F_MSG'])) # Escribir en consola el error
         return "Error" # Devolvemos "Error" (no se ha dado el like porque el archivo no existe o se ha producido un fallo al leer/escribir en el)
 
+# Funcion para dar like a un mensaje
+def give_dislike(voter_id, voter_name, msg_id):
+    
+    likes_data = get_likes(msg_id) # Obtener los datos de likes del mensaje con dicho ID
+    if likes_data is not None: # Si los datos de likes no estan vacios (se encontro al usuario)
+        if not hasVoted(voter_id, msg_id): # Si el usuario que vota aun no ha votado
+            likes_data['Data']['Dislikes'] = likes_data['Data']['Dislikes'] + 1 # Dar el dislike
+            likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
+            fjson_msg.update(likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (dislikes y votantes)
+            return "Ok" # Devolvemos "Ok" (se ha dado el dislike)
+        else: # El usuario que vota ya dio su like con anterioridad
+            print("    El votante ya voto con anterioridad") # Escribir en consola
+            print("") # Escribir en consola
+            return "Voted" # Devolvemos "Voted" (no se ha dado el like porque el usuario que vota ya dio su like con anterioridad)
+    else:
+        print("    Error: Mensaje con ID {} no encontrado en el archivo {}".format(msg_id, CONST['F_MSG'])) # Escribir en consola el error
+        return "Error" # Devolvemos "Error" (no se ha dado el like porque el archivo no existe o se ha producido un fallo al leer/escribir en el)
+
 # Funcion para incrementar la reputacion de un usuario
 def increase_reputation(user_id):
     
@@ -125,7 +144,7 @@ def add_new_user(user_id, user_name):
 # Funcion para añadir un nuevo mensaje en el archivo de mensajes
 def add_new_message(msg_id, user_id, user_name, text_fragment, msg_date):
     
-    msg = OrderedDict([('Msg_id','Null'), ('Data',OrderedDict([('User_id','Null'), ('User_name','Null'), ('Text','Null'), ('Date','Null'), ('Likes',0), ('Voters',OrderedDict([]))]))]) # Estructura inicial basica de mensaje
+    msg = OrderedDict([('Msg_id','Null'), ('Data',OrderedDict([('User_id','Null'), ('User_name','Null'), ('Text','Null'), ('Date','Null'), ('Likes',0), ('Dislikes',0), ('Voters',OrderedDict([]))]))]) # Estructura inicial basica de mensaje
     msg['Msg_id'] = msg_id # Insertamos el ID del mensaje en la estructura
     msg['Data']['User_id'] = user_id # Insertamos el ID del mensaje en la estructura
     msg['Data']['User_name'] = user_name # Insertamos el ID del mensaje en la estructura
@@ -152,6 +171,43 @@ def user_in_json(user_name):
     else: # No se ha encontrado un ID para dicho nombre/alias de usuario
         return False # Devuelve False
 
+# Funcion para buscar si la palabra recibida es un emoji correspondiente a un voto y votar en caso afirmativo
+def check_and_vote(word, bot, update):
+    vote = False
+    if not vote:
+        for emoji in CONST['EMO_HAND_UP']: # Para cada emoticono de EMO_HAND_UP
+            if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
+                if not isinstance(emoji, unicode): # Si el valor no es unicode
+                    emoji = emoji.decode('utf8') # Decodificamos a unicode
+            if word == emoji: # Si la palabra se corresponde con el emoticono de manita arriba
+                like(bot, update) # Hacemos like
+                vote = True
+                break
+    if not vote:
+        for emoji in CONST['EMO_HAND_DOWN']: # Para cada emoticono de EMO_HAND_UP
+            if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
+                if not isinstance(emoji, unicode): # Si el valor no es unicode
+                    emoji = emoji.decode('utf8') # Decodificamos a unicode
+            if word == emoji: # Si la palabra se corresponde con el emoticono de manita arriba
+                dislike(bot, update) # Hacemos like
+                vote = True
+                break
+
+def get_top_users():
+    
+    rep = [] # Creamos una lista vacia para almacenar la tupla (nombre, reputacion, nivel) de cada usuario
+    
+    reputations_data = fjson_usr.read_content() # Leer el contenido del archivo de usuarios
+    for usr in reputations_data: # Para cada usuario del archivo de usuarios
+        rep.append((usr['User_name'], usr['Reputation'], usr['Level'])) # Añadir la reputacion de a la lista
+
+    rep = sorted(rep, reverse=True, key=itemgetter(1))
+    rep = rep[0:10] # Nos quedamos solo con los 10 primeros
+
+    return rep
+    
+
+
 ##############################
 
 ### Manejadores para los mensajes de Telegram recibidos ###
@@ -177,13 +233,7 @@ def msg_nocmd(bot, update):
 
     words_text = text.split() # Separamos el texto en una lista de palabras
     if len(words_text) == 1: # Si solo hay una palabra
-        for emoti in CONST['EMO_HAND_UP']: # Para cada emoticono de EMO_HAND_UP
-            if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
-                if not isinstance(emoti, unicode): # Si el valor no es unicode
-                    emoti = emoti.decode('utf8') # Decodificamos a unicode
-            if words_text[0] == emoti: # Si la palabra se corresponde con el emoticono de manita arriba
-                like(bot, update) # Hacemos like
-                break
+        check_and_vote(words_text[0], bot, update) # Comprobar si es un voto y votar en tal caso
 
     text = str(text.encode('utf-8')) # Codificamos en UTF-8 y transformamos a string
     text = "{}...".format(text) # Añadimos puntos suspensivos al final del fragmento de texto
@@ -221,24 +271,27 @@ def like(bot, update):
             like_result = give_like(user_id, user_name, liked_msg_id) # Dar el like
             if like_result == "Ok": # Si el like se dio de forma exitosa
                 liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
-                rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
                 actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
-                actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
-                actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
-                emoti = u'\U0001f44d' # Emoti de manita arriba
+                actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
+                emoji_like = CONST['EMO_HAND_UP'][1] # Emoti de manita arriba
+                emoji_dislike = CONST['EMO_HAND_DOWN'][1] # Emoji de manita abajo
                 if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
-                    emoti = u'\U0001f44d'.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
-                response = "{} x {}!".format(emoti, actual_likes) # Respuesta del Bot
+                    emoji_like = emoji_like.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
+                    emoji_dislike = emoji_dislike.encode('utf8') # Codificamos a utf-8 el emoti de manita abajo
+                response = "{} x {}        {} x {}".format(emoji_like, actual_likes, emoji_dislike, actual_dislikes) # Respuesta del Bot
             elif like_result == "LVL_UP": # Se dio el like de forma exitosa y el usuario subio de nivel/rango
-                liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
                 rep = get_reputation(liked_user_id) # Obtener los datos de reputacion del usuario al que le pertenece el mensaje
-                actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
                 actual_reputation = rep['Reputation'] # Obtener la reputacion actual de ese usuario
                 actual_level = rep['Level'] # Obtener el nivel actual de ese usuario
-                emoti = u'\U0001f44d' # Emoti de manita arriba
+                liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
+                actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
+                actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
+                emoji_like = CONST['EMO_HAND_UP'][1] # Emoti de manita arriba
+                emoji_dislike = CONST['EMO_HAND_DOWN'][1] # Emoji de manita abajo
                 if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
-                    emoti = u'\U0001f44d'.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
-                response = "{} x {}!".format(emoti, actual_likes) # Respuesta del Bot
+                    emoji_like = emoji_like.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
+                    emoji_dislike = emoji_dislike.encode('utf8') # Codificamos a utf-8 el emoti de manita abajo
+                response = "{} x {}        {} x {}".format(emoji_like, actual_likes, emoji_dislike, actual_dislikes) # Respuesta del Bot
                 lvl_up_msg = "{} subio de rango!!!\n————————————\n\nReputacion actual:\n```\nTotal de Likes recibidos: {}\nPuntos: {}\nNuevo rango: {}\n```".format(liked_user_name, (actual_reputation-100)//5, actual_reputation, actual_level) # Respuesta del Bot
             elif like_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
@@ -248,13 +301,49 @@ def like(bot, update):
                 response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
     except:
         error = True
-        update.message.reply_text("Tienes que usarlo en respuesta al mensaje de otro usuario") # El Bot responde al comando con el siguiete mensaje
+        update.message.reply_text("Tienes que usarlo en respuesta al mensaje de otro usuario") # El Bot responde al comando con el siguiente mensaje
 
     if not error:
         update.message.reply_text(response, reply_to_message_id=liked_msg_id, parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con la respuesta generada en el proceso
         if like_result == "LVL_UP":
             bot.send_message(chat_id=chat_id, text=lvl_up_msg, parse_mode=ParseMode.MARKDOWN) # El Bot envia el mesnaje de que el usuario ha subido de nivel
 
+# Manejador para el comando /dislike
+def dislike(bot, update):
+
+    error = False
+    chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
+    try:
+        user_name = update.message.from_user.name # Aquirir el nombre/alias del usuario que vota
+        user_id = str(update.message.from_user.id) # Adquirir el ID del usuario que vota
+        disliked_user_id = str(update.message.reply_to_message.from_user.id) # Adquirir el ID del usuario al que se vota
+        disliked_msg_id = str(update.message.reply_to_message.message_id) # Adquirir el ID del mensaje votado
+
+        if user_id != disliked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
+            dislike_result = give_dislike(user_id, user_name, disliked_msg_id) # Dar el dislike
+            if dislike_result == "Ok": # Si el like se dio de forma exitosa
+                liks = get_likes(disliked_msg_id) # Obtener los datos de likes de ese mensaje
+                actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
+                actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
+                emoji_like = CONST['EMO_HAND_UP'][1] # Emoti de manita arriba
+                emoji_dislike = CONST['EMO_HAND_DOWN'][1] # Emoji de manita abajo
+                if CONST['PYTHON'] == 2:# Compatibilidad con Python 2
+                    emoji_like = emoji_like.encode('utf8') # Codificamos a utf-8 el emoti de manita arriba
+                    emoji_dislike = emoji_dislike.encode('utf8') # Codificamos a utf-8 el emoti de manita abajo
+                response = "{} x {}        {} x {}".format(emoji_like, actual_likes, emoji_dislike, actual_dislikes) # Respuesta del Bot
+            elif dislike_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
+                response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
+            else: # No se encontro el mesaje en el archivo de mensajes
+                response = "No se puede votar a ese mensaje" # Respuesta del Bot
+        else: # El usuario que vota es quien escribio ese mensaje
+                response = "No puedes votar a un mensaje tuyo" # Respuesta del Bot
+    except:
+        error = True
+        update.message.reply_text("Tienes que usarlo en respuesta al mensaje de otro usuario") # El Bot responde al comando con el siguiente mensaje
+
+    if not error:
+        update.message.reply_text(response, reply_to_message_id=disliked_msg_id, parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con la respuesta generada en el proceso
+        
 # Manejador para el comando /reputation
 def reputation(bot, update, args):
 
@@ -266,11 +355,27 @@ def reputation(bot, update, args):
             user_reputation = get_reputation(user_id) # Obtener los datos de reputacion de dicho usuario
             bot.send_message(chat_id=chat_id, text="Reputacion de {}:\n————————————\n```\nTotal de Likes recibidos: {}\nPuntos: {}\nRango: {}\n```".format(user_reputation['User_name'], (user_reputation['Reputation']-100)//5, user_reputation['Reputation'], user_reputation['Level']), parse_mode=ParseMode.MARKDOWN) # El Bot reponde al comando con los datos de reputacion de dicho usuario
         else: # No se encontro al usuario en el archivo de usuarios
-            bot.send_message(chat_id=chat_id, text="El usuario {} no se encuentra en este grupo o todavia no ha escrito ningun mensaje".format(user_name)) # El Bot responde al comando con el siguiete mensaje
+            bot.send_message(chat_id=chat_id, text="El usuario {} no se encuentra en este grupo o todavia no ha escrito ningun mensaje".format(user_name)) # El Bot responde al comando con el siguiente mensaje
     elif len(args) < 1: # Si el comando no presenta argumento alguno
-        bot.send_message(chat_id=chat_id, text="Tienes que especificar el nombre/alias del usuario.\n\nPor ejemplo:\n/reputation @alias") # El Bot responde al comando con el siguiete mensaje
+        bot.send_message(chat_id=chat_id, text="Tienes que especificar el nombre/alias del usuario.\n\nPor ejemplo:\n/reputation @alias") # El Bot responde al comando con el siguiente mensaje
     else: # El comando presenta más de 1 argumento
-        bot.send_message(chat_id=chat_id, text="Demasiados argumentos suministrados, el comando solo acepta 1 argumento el nombre/alias del usuario.\n\nPor ejemplo:\n/reputation @mrguy") # El Bot responde al comando con el siguiete mensaje
+        bot.send_message(chat_id=chat_id, text="Demasiados argumentos suministrados, el comando solo acepta 1 argumento el nombre/alias del usuario.\n\nPor ejemplo:\n/reputation @mrguy") # El Bot responde al comando con el siguiente mensaje
+
+# Manejador para el comando /top
+def top(bot, update):
+
+    chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
+    response = "Top de los mejores usuarios:\n————————————\n" # Encabezado del mensaje de respuesta
+
+    top_data = get_top_users() # Obtener la lista de usuarios en el Top
+
+    i = 1 # Posicion
+    for user in top_data: # Para cada usuario del top
+        response = response + "{} - {}: {}\n\n".format(i, user[0], user[1]) # Construir la respuesta con los datos del usuario
+        i = i + 1 # Incrementar la posicion
+    
+    response = response[0:4095] # Truncar al maximo numero de caracteres posibles en un mensaje telegram
+    bot.send_message(chat_id=chat_id, text=response) # El Bot responde al comando con mensaje
 
 ##############################
 
@@ -292,7 +397,9 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("like", like))
+    dp.add_handler(CommandHandler("dislike", dislike))
     dp.add_handler(CommandHandler("reputation", reputation, pass_args=True))
+    dp.add_handler(CommandHandler("top", top))
     
     # Lanzar el Bot ignorando los mensajes pendientes (clean=True)
     updater.start_polling(clean=True)

@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   19/07/2017
-Version: 1.2
+Fecha:   20/07/2017
+Version: 1.3
 '''
 
 import os
@@ -25,10 +25,12 @@ class TSjson:
     cualquier hilo de ejecucion (Thread-Safe).
     '''
 
-    # Constructor de la clase, inicializa el Lock y adquiere el nombre del archivo a controlar
+    # Constructor de la clase
     def __init__(self, file_name):
-        self.lock = Lock()
-        self.file_name = file_name
+        
+        self.lock = Lock() #Inicializa el Lock
+        self.file_name = file_name # Adquiere el nombre del archivo a controlar
+
 
     # Funcion para leer de un archivo json
     def read(self):
@@ -51,6 +53,7 @@ class TSjson:
         
         return read # Devolver el resultado de la lectura de la funcion
 
+
     # Funcion para escribir en un archivo json
     def write(self, data):
         
@@ -71,6 +74,7 @@ class TSjson:
         finally: # Para acabar, haya habido excepcion o no
             self.lock.release() # Abrimos (liberamos) el mutex
 
+
     # Funcion para leer el contenido de un archivo json (datos json)
     def read_content(self):
         
@@ -80,6 +84,7 @@ class TSjson:
             return read['Content'] # Devolvemos el contenido de la lectura (datos json)
         else: # Lectura vacia
             return read # Devolvemos la lectura vacia
+
 
     # Funcion para añadir al contenido de un archivo json, nuevos datos json
     def write_content(self, data):
@@ -112,26 +117,14 @@ class TSjson:
                 with open(self.file_name, "w") as f:  # Abrir el archivo en modo escritura (sobre-escribe)
                     f.write("\n{}\n".format(json.dumps(content, indent=4))) # Escribimos en el archivo los datos json asegurando todos los caracteres ascii, codificacion utf-8 y una "indentacion" de 4 espacios
         except IOError as e:
-            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+            print("    I/O error({0}): {1}".format(e.errno, e.strerror))
         except ValueError:
-            print("Could not convert data to an integer.")
+            print("    Error en conversion de dato")
         except: # Error intentando abrir el archivo
             print("    Error cuando se abria para escritura, el archivo {}".format(self.file_name)) # Escribir en consola el error
         finally: # Para acabar, haya habido excepcion o no
             self.lock.release() # Abrimos (liberamos) el mutex
 
-    # Funcion para limpiar todos los datos de un archivo json (no se usa actualmente)
-    def clear_content(self):
-        
-        try: # Intentar abrir el archivo
-            self.lock.acquire() # Cerramos (adquirimos) el mutex
-            if os.path.exists(self.file_name) and os.stat(self.file_name).st_size: # Si el archivo existe y no esta vacio
-                with open(self.file_name, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
-                    f.write('\n{\n    "Content": [\n    ]\n}\n') # Escribir la estructura de contenido basica
-        except: # Error intentando abrir el archivo
-            print("    Error cuando se abria para escritura, el archivo {}".format(self.file_name)) # Escribir en consola el error
-        finally: # Para acabar, haya habido excepcion o no
-            self.lock.release() # Abrimos (liberamos) el mutex
 
     # Funcion para actualizar datos de un archivo json
     # [Nota: cada dato json necesita al menos 1 elemento identificador unico (uide), si no es asi, la actualizacion se producira en el primer elemento que se encuentre]
@@ -153,6 +146,21 @@ class TSjson:
             self.write(file_data) # Escribimos el dato actualizado en el archivo json
         else: # No se encontro ningun dato json con dicho UIDE
             print("    Error: UIDE no encontrado en el archivo, o el archivo no existe") # Escribir en consola el error
+
+
+    # Funcion para limpiar todos los datos de un archivo json (no se usa actualmente)
+    def clear_content(self):
+        
+        try: # Intentar abrir el archivo
+            self.lock.acquire() # Cerramos (adquirimos) el mutex
+            if os.path.exists(self.file_name) and os.stat(self.file_name).st_size: # Si el archivo existe y no esta vacio
+                with open(self.file_name, "w") as f: # Abrir el archivo en modo escritura (sobre-escribe)
+                    f.write('\n{\n    "Content": [\n    ]\n}\n') # Escribir la estructura de contenido basica
+        except: # Error intentando abrir el archivo
+            print("    Error cuando se abria para escritura, el archivo {}".format(self.file_name)) # Escribir en consola el error
+        finally: # Para acabar, haya habido excepcion o no
+            self.lock.release() # Abrimos (liberamos) el mutex
+    
 
     # funcion para eliminar un archivo json (no se usa actualmente)
     def delete(self):

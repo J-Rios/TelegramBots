@@ -16,6 +16,8 @@ Version: 1.5
 ### Librerias ###
 
 # Importacion de librerias
+import sys
+import signal
 import TSjson
 import datetime
 
@@ -32,6 +34,20 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Regex
 ### Variables Globales ###
 fjson_usr = TSjson.TSjson(CONST['F_USR']) # Archivo de usuarios (objeto de la clase TSjson para el manejo seguro del archivo)
 fjson_msg = TSjson.TSjson(CONST['F_MSG']) # Archivo de mensajes (Objeto de la clase TSjson para el manejo seguro del archivo)
+
+##############################
+
+### Manejador para señales de cierre del proceso
+
+# Manejador
+def signal_handler(signal, frame):
+    print('Cerrando el programa de forma segura...') # Ctrl+C presionado (SIGINT) o se ha recibido un Kill (SIGKILL)
+    fjson_msg.lock.acquire() # Cerramos (adquirimos) el mutex del archivo de mensajes para asegurarnos de que no se esta escribiendo en el
+    fjson_usr.lock.acquire() # Cerramos (adquirimos) el mutex del archivo de usuarios para asegurarnos de que no se esta escribiendo en el
+    sys.exit(0) # Cerrar el programa
+
+signal.signal(signal.SIGTERM, signal_handler)  # Asociamos la señal SIGTERM (kill pid) al manejador signal_handler
+signal.signal(signal.SIGINT, signal_handler)  # Asociamos la señal SIGINT (Ctrl+C) al manejador signal_handler
 
 ##############################
 
@@ -212,6 +228,7 @@ def user_in_json(user_name):
 
 # Funcion para buscar si la palabra recibida es un emoji correspondiente a un voto y votar en caso afirmativo
 def check_and_vote(word, bot, update):
+    
     vote = False
     if not vote:
         for emoji in CONST['EMO_HAND_UP']: # Para cada emoticono de EMO_HAND_UP
@@ -255,8 +272,6 @@ def get_position(user_id):
         pos = 0 # El usuario no se ha encontrado en el archivo, posicion 0
     
     return pos # Devolver la posicion
-        
-
 
 
 # Funcion para obtener una lista con los 10 mejores usuarios (mayor reputacion) del grupo
@@ -389,7 +404,7 @@ def like(bot, update):
             elif like_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
             else: # No se encontro el mesaje en el archivo de mensajes
-                response = "No se puede votar a ese mensaje. Parece que no tuve acceso al mismo cuando se publico." # Respuesta del Bot
+                response = "No se puede votar a ese mensaje. Si es un mensaje de texto, puede que no tuviera acceso al mismo cuando se publico." # Respuesta del Bot
         else: # El usuario que vota es quien escribio ese mensaje
             response = "No puedes votar a un mensaje tuyo." # Respuesta del Bot
     except:
@@ -437,7 +452,7 @@ def dislike(bot, update):
             elif dislike_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes." # Respuesta del Bot
             else: # No se encontro el mesaje en el archivo de mensajes
-                response = "No se puede votar a ese mensaje. Parece que no tuve acceso al mismo cuando se publico." # Respuesta del Bot
+                response = "No se puede votar a ese mensaje. Si es un mensaje de texto, puede que no tuviera acceso al mismo cuando se publico." # Respuesta del Bot
         else: # El usuario que vota es quien escribio ese mensaje
             response = "No puedes votar a un mensaje tuyo." # Respuesta del Bot
     except:
@@ -472,9 +487,9 @@ def reputation(bot, update, args):
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     if len(args) == 1: # Si el comando presenta 1 argumento
         user_name = args[0] # Adquirir el nombre/alias del usuario (argumento)
+        user_id = id_from_name(user_name) # Adquirir el ID de usuario correspondiente a ese nombre/alias
         if user_name[0] == '@': # Si el primer caracter del usuario es una @
             user_name = user_name[1:] # Eliminamos la @
-        user_id = id_from_name(user_name) # Adquirir el ID de usuario correspondiente a ese nombre/alias
         if user_id is not None: # Si se encontro al usuario en el archivo de usuarios
             user_position = get_position(user_id) # Obtener la posicion del usuario dentro del ranking global
             user_reputation = get_reputation(user_id) # Obtener los datos de reputacion de dicho usuario
@@ -510,9 +525,9 @@ def position(bot, update, args):
 
     if len(args) == 1: # Si el comando presenta 1 argumento
         user_name = args[0] # Adquirir el nombre/alias del usuario (argumento)
+        user_id = id_from_name(user_name) # Adquirir el ID de usuario correspondiente a ese nombre/alias
         if user_name[0] == '@': # Si el primer caracter del usuario es una @
             user_name = user_name[1:] # Eliminamos la @
-        user_id = id_from_name(user_name) # Adquirir el ID de usuario correspondiente a ese nombre/alias
         if user_id is not None: # Si se encontro al usuario en el archivo de usuarios
             user_position = get_position(user_id) # Obtener la posicion del usuario dentro del ranking global
             user_reputation = get_reputation(user_id) # Obtener los datos de reputacion de dicho usuario

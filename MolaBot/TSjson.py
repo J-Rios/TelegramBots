@@ -10,7 +10,7 @@ Descripcion:
 
 Autor:   Jose Rios Rubio
 Fecha:   21/07/2017
-Version: 1.4
+Version: 1.5
 '''
 
 import os

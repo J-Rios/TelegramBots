@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   21/07/2017
-Version: 1.5
+Fecha:   23/07/2017
+Version: 1.6
 '''
 
 import os
@@ -137,6 +137,27 @@ class TSjson:
         i = 0 # Posicion inicial del dato a 0
         for msg in file_data['Content']: # Para cada mensaje en el archivo json
             if data[uide] == msg[uide]: # Si el mensaje tiene el UIDE buscado
+                found = 1 # Marcar que se ha encontrado la posicion
+                break # Interrumpir y salir del bucle
+            i = i + 1 # Incrementar la posicion del dato
+        
+        if found: # Si se encontro en el archivo json datos con el UIDE buscado
+            file_data['Content'][i] = data # Actualizamos los datos json que contiene ese UIDE
+            self.write(file_data) # Escribimos el dato actualizado en el archivo json
+        else: # No se encontro ningun dato json con dicho UIDE
+            print("    Error: UIDE no encontrado en el archivo, o el archivo no existe") # Escribir en consola el error
+
+    # Funcion para actualizar datos internos de los datos de un archivo json
+    # [Nota: cada dato json necesita al menos 1 elemento identificador unico (uide), si no es asi, la actualizacion se producira en el primer elemento que se encuentre]
+    def update_twice(self, data, uide1, uide2):
+        
+        file_data = self.read() # Leer todo el archivo json
+        
+        # Buscar la posicion del dato en el contenido json
+        found = 0 # Posicion encontrada a 0
+        i = 0 # Posicion inicial del dato a 0
+        for msg in file_data['Content']: # Para cada mensaje en el archivo json
+            if (data[uide1] == msg[uide1]) and (data[uide2] == msg[uide2]): # Si el mensaje tiene el UIDE buscado
                 found = 1 # Marcar que se ha encontrado la posicion
                 break # Interrumpir y salir del bucle
             i = i + 1 # Incrementar la posicion del dato

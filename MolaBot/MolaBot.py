@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   21/07/2017
-Version: 1.5
+Fecha:   23/07/2017
+Version: 1.6
 '''
 
 ### Librerias ###
@@ -37,7 +37,7 @@ fjson_msg = TSjson.TSjson(CONST['F_MSG']) # Archivo de mensajes (Objeto de la cl
 
 ##############################
 
-### Manejador para señales de cierre del proceso
+### Manejador para señales de cierre/terminacion del proceso del programa
 
 # Manejador
 def signal_handler(signal, frame):
@@ -66,26 +66,27 @@ def get_reputation(user_id):
 
 
 # Funcion para obtener los datos de likes de un mensaje a traves de un ID
-def get_likes(msg_id):
+def get_likes(chat_id, msg_id):
     
     content = fjson_msg.read_content() # Leer el contenido del archivo de mensajes
     
     for msg in content: # Para cada mensaje del archivo
-        if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
-            return msg # Devolvemos los datos de ese mensaje
+        if chat_id == msg['Chat_id']: # Si el mensaje pertenece al chat que estamos buscando
+            if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
+                return msg # Devolvemos los datos de ese mensaje
     
     return None # Devolvemos un diccionario vacio si no se encontro el mensaje
 
 
 # Funcion para dar like a un mensaje
-def give_like(voter_id, voter_name, msg_id):
+def give_like(chat_id, voter_id, voter_name, msg_id):
     
-    likes_data = get_likes(msg_id) # Obtener los datos de likes del mensaje con dicho ID
+    likes_data = get_likes(chat_id, msg_id) # Obtener los datos de likes del mensaje con dicho ID
     if likes_data is not None: # Si los datos de likes no estan vacios (se encontro al usuario)
-        if not hasVoted(voter_id, msg_id): # Si el usuario que vota aun no ha votado
+        if not hasVoted(chat_id, voter_id, msg_id): # Si el usuario que vota aun no ha votado
             likes_data['Data']['Likes'] = likes_data['Data']['Likes'] + 1 # Dar el like
-            likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
-            fjson_msg.update(likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
+            likes_data['Data']['Voters'][voter_name] = voter_id # Añadir el usuario que vota a los votantes de ese mensaje
+            fjson_msg.update_twice(likes_data, 'Chat_id', 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (likes y votantes)
             
             #if not likes_data['Data']['Likes'] % CONST['GIVE_REP_MOD'] : # Si el numero de likes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...) [Dar puntos de reputacion cada 5 likes]
             lvl_up = increase_reputation(likes_data['Data']['User_id']) # Incrementamos la reputacion
@@ -103,14 +104,14 @@ def give_like(voter_id, voter_name, msg_id):
 
 
 # Funcion para dar like a un mensaje
-def give_dislike(voter_id, voter_name, msg_id):
+def give_dislike(chat_id, voter_id, voter_name, msg_id):
     
-    likes_data = get_likes(msg_id) # Obtener los datos de likes del mensaje con dicho ID
+    likes_data = get_likes(chat_id, msg_id) # Obtener los datos de likes del mensaje con dicho ID
     if likes_data is not None: # Si los datos de likes no estan vacios (se encontro al usuario)
-        if not hasVoted(voter_id, msg_id): # Si el usuario que vota aun no ha votado
+        if not hasVoted(chat_id, voter_id, msg_id): # Si el usuario que vota aun no ha votado
             likes_data['Data']['Dislikes'] = likes_data['Data']['Dislikes'] + 1 # Dar el dislike
             likes_data['Data']['Voters'][voter_name] = voter_id # Añadir al usuario que vota a los votantes de ese mensaje
-            fjson_msg.update(likes_data, 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (dislikes y votantes)
+            fjson_msg.update_twice(likes_data, 'Chat_id', 'Msg_id') # Actualiza el archivo de mensajes con los nuevos datos (dislikes y votantes)
             
             #if not likes_data['Data']['Dislikes'] % CONST['GIVE_REP_MOD'] : # Si el numero de dislikes actual es modulo de GIVE_REP_MOD (e.g. para mod 5: 5, 10, 15 ...) [Quitar puntos de reputacion cada 5 dislikes]
             lvl_down = decrease_reputation(likes_data['Data']['User_id']) # Decrementamos la reputacion
@@ -172,15 +173,16 @@ def decrease_reputation(user_id):
 
 
 # Funcion para determinar si un usuario ha votado con anterioridad a un mensaje
-def hasVoted(voter_id, msg_id):
+def hasVoted(chat_id, voter_id, msg_id):
     
     content = fjson_msg.read_content() # # Leer el contenido del archivo de mensajes
     
     for msg in content: # Para cada mensaje del archivo
-        if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
-            for ids in msg['Data']['Voters'].items(): # Para cada votante de ese mensaje
-                if voter_id == ids[1]: # Si el ID del usuario que vota se encuentra entre los votantes
-                    return True # Devolvemos True
+        if chat_id == msg['Chat_id']: # Si el mensaje pertenece al chat que estamos buscando
+            if msg_id == msg['Msg_id']: # Si el mensaje presenta el ID que estamos buscando
+                for ids in msg['Data']['Voters'].items(): # Para cada votante de ese mensaje
+                    if voter_id == ids[1]: # Si el ID del usuario que vota se encuentra entre los votantes
+                        return True # Devolvemos True
     return False # Devolvemos False si no se ha encontrado el ID del usuario que vota en la lista de los usuarios que votaron con anterioridad
 
 
@@ -194,9 +196,10 @@ def add_new_user(user_id, user_name):
 
 
 # Funcion para añadir un nuevo mensaje en el archivo de mensajes
-def add_new_message(msg_id, user_id, user_name, text_fragment, msg_date):
+def add_new_message(chat_id, msg_id, user_id, user_name, text_fragment, msg_date):
     
-    msg = OrderedDict([('Msg_id','Null'), ('Data',OrderedDict([('User_id','Null'), ('User_name','Null'), ('Text','Null'), ('Date','Null'), ('Likes',0), ('Dislikes',0), ('Voters',OrderedDict([]))]))]) # Estructura inicial basica de mensaje
+    msg = OrderedDict([('Chat_id','Null'), ('Msg_id','Null'), ('Data',OrderedDict([('User_id','Null'), ('User_name','Null'), ('Text','Null'), ('Date','Null'), ('Likes',0), ('Dislikes',0), ('Voters',OrderedDict([]))]))]) # Estructura inicial basica de mensaje
+    msg['Chat_id'] = chat_id # Insertamos el ID del mensaje en la estructura
     msg['Msg_id'] = msg_id # Insertamos el ID del mensaje en la estructura
     msg['Data']['User_id'] = user_id # Insertamos el ID del mensaje en la estructura
     msg['Data']['User_name'] = user_name # Insertamos el ID del mensaje en la estructura
@@ -326,7 +329,7 @@ def get_top_of_user(usr_id):
 # Manejador correspondiente a la llegada de un nuevo miembro al grupo
 def new_user(bot, update):
     
-    user_id = str(update.message.from_user.id) # Adquirir su ID
+    user_id = update.message.from_user.id # Adquirir su ID
     user_name = update.message.from_user.name # Adquirir su nombre/alias
     add_new_user(user_id, user_name) # Añadir el usuario en el archivo de usuarios
 
@@ -334,8 +337,9 @@ def new_user(bot, update):
 # Manejador para mensajes (no comandos)
 def msg_nocmd(bot, update):
 
-    msg_id = str(update.message.message_id) # Adquirir el ID del mensaje
-    user_id = str(update.message.from_user.id) # Adquirir el ID del usuario
+    chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
+    msg_id = update.message.message_id # Adquirir el ID del mensaje
+    user_id = update.message.from_user.id # Adquirir el ID del usuario
     user_name = update.message.from_user.name # Adquirir el nombre/alias del usuario
     msg_date = (update.message.date).now().strftime("%Y-%m-%d %H:%M:%S") # Adquirir la fecha-hora en que se envio el mensaje
     text = update.message.text # Adquirir el texto del mensaje
@@ -350,7 +354,7 @@ def msg_nocmd(bot, update):
     text = str(text.encode('utf-8')) # Codificamos en UTF-8 y transformamos a string
     text = "{}...".format(text) # Añadimos puntos suspensivos al final del fragmento de texto
 
-    add_new_message(msg_id, user_id, user_name, text, msg_date) # Añadimos el mensaje en el archivo de mensajes
+    add_new_message(chat_id, msg_id, user_id, user_name, text, msg_date) # Añadimos el mensaje en el archivo de mensajes
 
     if not user_in_json(user_name): # Si el usuario que escribio el mensaje no se encuentra en el archivo de usuarios
         add_new_user(user_id, user_name) # Añadimos al usuario
@@ -377,15 +381,15 @@ def like(bot, update):
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     try:
         user_name = update.message.from_user.name # Aquirir el nombre/alias del usuario que vota
-        user_id = str(update.message.from_user.id) # Adquirir el ID del usuario que vota
+        user_id = update.message.from_user.id # Adquirir el ID del usuario que vota
         liked_user_name = update.message.reply_to_message.from_user.name # Adquirir el nombre/alias del usuario al que se vota (propietario del mensaje)
-        liked_user_id = str(update.message.reply_to_message.from_user.id) # Adquirir el ID del usuario al que se vota
-        liked_msg_id = str(update.message.reply_to_message.message_id) # Adquirir el ID del mensaje votado
+        liked_user_id = update.message.reply_to_message.from_user.id # Adquirir el ID del usuario al que se vota
+        liked_msg_id = update.message.reply_to_message.message_id # Adquirir el ID del mensaje votado
 
         if user_id != liked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
-            like_result = give_like(user_id, user_name, liked_msg_id) # Dar el like
+            like_result = give_like(chat_id, user_id, user_name, liked_msg_id) # Dar el like
             if (like_result == "Ok") or (like_result == "LVL_UP"): # Si el like se dio de forma exitosa
-                liks = get_likes(liked_msg_id) # Obtener los datos de likes de ese mensaje
+                liks = get_likes(chat_id, liked_msg_id) # Obtener los datos de likes de ese mensaje
                 actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
                 actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
                 emoji_like = CONST['EMO_HAND_UP'][1] # Emoti de manita arriba
@@ -404,7 +408,7 @@ def like(bot, update):
             elif like_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes" # Respuesta del Bot
             else: # No se encontro el mesaje en el archivo de mensajes
-                response = "No se puede votar a ese mensaje. Si es un mensaje de texto, puede que no tuviera acceso al mismo cuando se publico." # Respuesta del Bot
+                response = "Solo se pueden votar mensajes de texto de otros usuarios. Si es un mensaje de texto, puede que no tuviera acceso al mismo cuando se publico." # Respuesta del Bot
         else: # El usuario que vota es quien escribio ese mensaje
             response = "No puedes votar a un mensaje tuyo." # Respuesta del Bot
     except:
@@ -425,15 +429,15 @@ def dislike(bot, update):
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
     try:
         user_name = update.message.from_user.name # Aquirir el nombre/alias del usuario que vota
-        user_id = str(update.message.from_user.id) # Adquirir el ID del usuario que vota
+        user_id = update.message.from_user.id # Adquirir el ID del usuario que vota
         disliked_user_name = update.message.reply_to_message.from_user.name # Adquirir el nombre/alias del usuario al que se vota (propietario del mensaje)
-        disliked_user_id = str(update.message.reply_to_message.from_user.id) # Adquirir el ID del usuario al que se vota
-        disliked_msg_id = str(update.message.reply_to_message.message_id) # Adquirir el ID del mensaje votado
+        disliked_user_id = update.message.reply_to_message.from_user.id # Adquirir el ID del usuario al que se vota
+        disliked_msg_id = update.message.reply_to_message.message_id # Adquirir el ID del mensaje votado
 
         if user_id != disliked_user_id: # Si el usuario que vota no es el propietario de ese mensaje
-            dislike_result = give_dislike(user_id, user_name, disliked_msg_id) # Dar el dislike
+            dislike_result = give_dislike(chat_id, user_id, user_name, disliked_msg_id) # Dar el dislike
             if (dislike_result == "Ok") or (dislike_result == "LVL_DOWN"): # Si el dislike se dio de forma exitosa
-                liks = get_likes(disliked_msg_id) # Obtener los datos de likes de ese mensaje
+                liks = get_likes(chat_id, disliked_msg_id) # Obtener los datos de likes de ese mensaje
                 actual_likes = liks['Data']['Likes'] # Obtener el numero actual de likes totales de ese mensaje
                 actual_dislikes = liks['Data']['Dislikes'] # Obtener el numero actual de dislikes totales de ese mensaje
                 emoji_like = CONST['EMO_HAND_UP'][1] # Emoti de manita arriba
@@ -452,7 +456,7 @@ def dislike(bot, update):
             elif dislike_result == "Voted": # El usuario que vota ya habia votado a ese mensaje
                 response = "Ya has votado a ese mensaje antes." # Respuesta del Bot
             else: # No se encontro el mesaje en el archivo de mensajes
-                response = "No se puede votar a ese mensaje. Si es un mensaje de texto, puede que no tuviera acceso al mismo cuando se publico." # Respuesta del Bot
+                response = "Solo se pueden votar mensajes de texto de otros usuarios. Si es un mensaje de texto, puede que no tuviera acceso al mismo cuando se publico." # Respuesta del Bot
         else: # El usuario que vota es quien escribio ese mensaje
             response = "No puedes votar a un mensaje tuyo." # Respuesta del Bot
     except:
@@ -468,7 +472,7 @@ def dislike(bot, update):
 # Manejador para el comando /myreputation
 def myreputation(bot, update):
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
-    user_id = str(update.message.from_user.id) # Adquirir el ID del usuario
+    user_id = update.message.from_user.id # Adquirir el ID del usuario
 
     user_position = get_position(user_id) # Obtener la posicion del usuario dentro del ranking global
 
@@ -505,7 +509,7 @@ def reputation(bot, update, args):
 # Manejador para el comando /myposition
 def myposition(bot, update):
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
-    user_id = str(update.message.from_user.id) # Adquirir el ID del usuario
+    user_id = update.message.from_user.id # Adquirir el ID del usuario
 
     user_position = get_position(user_id) # Obtener la posicion del usuario dentro del ranking global
 
@@ -544,7 +548,7 @@ def position(bot, update, args):
 def mytop(bot, update):
 
     chat_id = update.message.chat_id # Adquirir el ID del chat (grupo) que hace la consulta
-    user_id = str(update.message.from_user.id) # Adquirir el ID del usuario
+    user_id = update.message.from_user.id # Adquirir el ID del usuario
     response = "Top de los mejores usuarios:\n————————————\n" # Encabezado del mensaje de respuesta
 
     top_data = get_top_of_user(user_id) # Obtenemos una lista con los 10 usuarios cercanos al usuario que hace la peticion

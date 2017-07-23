@@ -9,8 +9,8 @@ Descripcion:
     puntos de reputacion que dicho usuario tiene.
 
 Autor:   Jose Rios Rubio
-Fecha:   21/07/2017
-Version: 1.5
+Fecha:   23/07/2017
+Version: 1.6
 '''
 
 # Constantes para el Bot

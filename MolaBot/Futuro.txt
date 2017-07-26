@@ -1,0 +1,28 @@
+Posibles cosas que implementar en el futuro:
+
+- Comando de consulta de likes de un mensaje.
+
+- Dar recompensas (nuevas capacidades a los usuarios) conforme suben de nivel.
+	- Que al llegar a cierto nivel se les permita establecer una "firma" (frase de corto tamaño) que será mostrada junto a su reputacion.
+	- Que al llegar al rango más alto se les permita modificar lo que se muestra en su rango de reputación.
+
+- Permitir donacion de puntos de reputacion entre usuarios.
+
+- Hacer nuevos comandos Telegram para configurar elementos del Bot (admins, usuarios, reputaciones).
+    - Hacer que un usuario pueda registrarse como admin, a partir de una clave secreta, implicita en el código, que se utilizará para dar acceso al registro de admin.
+
+- Gestionar el tamaño máximo de mensajes que se almacenan.
+	- Eliminar mensajes de hace mas de X meses.
+
+- Gestionar la eliminación de usuarios que abandonan el grupo.
+	- Aunque salga un usuario del grupo, mantenerlo en la base de datos durante un periodo de tiempo antes de que se elimine (quizás 3 días):
+		- Habrá que insertar un campo de "usuario abandonó el grupo", junto a otro de la fecha y hora en que lo abandonó, dentro de los elementos json del archivo de reputaciones. 
+		- Cuando salga un usuario deberá activarse este campo y crear una función/evento que cada hora (o más) consulte todos los "usuario abandonó el grupo" que haya en la base de datos, y si la fecha en la que lo abandonó fue de hace más de la de "retención", elimine por completo a dicho usuario.
+		- Habrá que añadir un control en el handler de nuevos miembros (add_new_user) para comprobar si el nuevo usuario está en la base de datos o no (para no resetearle la reputación en caso de que se haya salido del grupo pero haya vuelto antes del tiempo de "retención").
+	
+- Hacer al Bot más inteligente:
+	- Que el Bot otorgue, de forma automatica, puntos de reputacion cundo se detecte en un mensaje de repuesta, palabras/frases positivas (gracias por tu ayuda, gracias, genial, me encanta, eres un crack, mola mucho...).
+	- Implementar toda una red neuronal artificial.
+		- Entrenamiento no-supervisado haciendo uso de todo el historial de mensajes del chat y siguiendo conversaciones y los resultados de dichas conversaciones [Nota: Habria que consutar si un Bot es capaz de alguna manera, de tener acceso a mensajes escritos con anterioridad a su llegada].
+
+	

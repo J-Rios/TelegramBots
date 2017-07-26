@@ -1,8 +1,18 @@
 # -*- coding: utf-8 -*-
-# Script: opibot.py
-# Descripción: Bot de Telegram en Python que nos permite consultar y controlar un sistema linux (en este caso Armbian, en un dispositivo Orange pi pc)
-# Autor: José Ríos Rubio
-##############################
+'''
+Script:                opibot.py
+
+Descripcion:
+    Bot de Telegram que gestiona todo un sistema de reputaciones de los usuarios pertenecientes a
+    un grupo. Permite a un usuario, dar "Likes" a los mensajes de otros, y el numero global de
+    "Likes" (la suma de todos los likes de todos los mensajes de un mismo usuario) determinara los
+    puntos de reputacion que dicho usuario tiene.
+
+Autor:                 Jose Rios Rubio
+Fecha de creacion:     25/09/2016
+Fecha de modificacion: 19/04/2017
+Version:               1.2
+'''
 
 # Importar librerias
 import os

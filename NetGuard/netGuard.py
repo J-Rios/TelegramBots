@@ -70,19 +70,21 @@ def net_devices(update):
                     list_devices_to_rm.append(old_device)
             print('Dispositivos a insertar:\n{}'.format(list_devices_to_add))
             print('Dispositivos a eliminar:\n{}'.format(list_devices_to_rm))
+            msg = ''
             if list_devices_to_add: # Si la lista de nuevos dispositivos detectados tiene algun nuevo dispositivo
-                msg = 'Nuevos dispositivos conectados a la red:\n'
+                msg = 'Nuevo dispositivo conectado a la red:\n'
                 for device in list_devices_to_add:
                     list_devices.append(device)
                     msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
-                if list_devices_to_rm: # Si la lista de dispositivos a eliminar (estaban conectados y ahora no se han detectado)
-                    msg = '{}\n\n\nDispositivos desconectados de la red:\n'.format(msg)
-                    for device in list_devices_to_rm:
-                        list_devices.remove(device)
-                        msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
-                    del list_devices_to_rm[:]
                 del list_devices_to_add[:]
+            if list_devices_to_rm: # Si la lista de dispositivos a eliminar (estaban conectados y ahora no se han detectado)
+                msg = '{}\n\n\nDispositivo desconectado de la red:\n'.format(msg)
+                for device in list_devices_to_rm:
+                    list_devices.remove(device)
+                    msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
+                del list_devices_to_rm[:]
                 print('Lista final de dispositivos conectados a la red:\n {}'.format(list_devices))
+            if msg:
                 update.message.reply_text(msg) # El bot contesta con este mensaje
         print('sleep')
         sleep(TIEMPO_CONSULTA) # Esperamos el tiempo entre consultas

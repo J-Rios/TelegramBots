@@ -32,7 +32,7 @@ def llamadaSistema(entrada):
 def nmap():
     device_data = {'IP': '0.0.0.0', 'MAC': '00:00:00:00:00'} # Creamos un diccionario por defecto donde guardar la informacion de los dispositivos (IP y MAC)
     list_dev = [] # Lista de dispositivos inicialmente vacia
-    nmap_raw = llamadaSistema("nmap -sP 192.168.4.0-30 --disable-arp-ping") # Realizamos la llamada al comando
+    nmap_raw = llamadaSistema("nmap -sP 192.168.1.1-100 --disable-arp-ping") # Realizamos la llamada al comando
     list_ip = findall('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', nmap_raw) # Metemos en una lista las IPs de la respuesta del comando nmap
     list_mac = findall('(?:[0-9a-fA-F]:?){12}', nmap_raw) # Metemos en una lista las MACs de la respuesta del comando nmap
     if len(list_ip)-1 == len(list_mac): # Si el numero de MACs es uno menos que el de IPs (pues la ultima ip de la lista es la de nuestro dispositivo)

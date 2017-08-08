@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
+'''
+Script:                netGuard.py
+Descripcion:
+    Bot de Telegram que lleva un control de los dispositivos que, por wi-fi, se conectan/desconectan
+    de la red local (wlan).
+Autor:                 Jose Rios Rubio
+Fecha de creacion:     08/08/2017
+Fecha de modificacion: 09/08/2017
+Version:               1.0
+'''
 
-# Nota: El script debe ser ejecutado con sudo
-
-# Importar de librerias
+# Importar desde librerias
 from os import popen, geteuid
 from sys import exit
 from re import findall
 from time import sleep
 from threading import Thread
-
-# Importar desde librerias
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler, CallbackQueryHandler)
 
 ##############################
@@ -19,7 +25,11 @@ TIEMPO_CONSULTA = 10 # Tiempo entre consultas de dispositivos en la red (en segu
 
 ##############################
 
-# Funcion para realizar llamadas del sistema (ejecutar comandos Linux)
+MY_DEVICES = [] # Lista de dispositivos con nombres asociados
+
+##############################
+
+# Funcion para realizar llamadas del sistema (ejecutar comandos Bash)
 def llamadaSistema(entrada):
     salida = "" # Creamos variable vacia
     f = popen(entrada) # Llamada al sistema
@@ -28,7 +38,7 @@ def llamadaSistema(entrada):
     salida = salida[:-1] # Truncamos el caracter fin de linea '\n'
     return salida # Devolvemos la respuesta al comando ejecutado
 
-
+# Funcion para realizar el escaneo de los dispositivos conectados a la red mediante la herramienta nmap
 def nmap():
     device_data = {'IP': '0.0.0.0', 'MAC': '00:00:00:00:00'} # Creamos un diccionario por defecto donde guardar la informacion de los dispositivos (IP y MAC)
     list_dev = [] # Lista de dispositivos inicialmente vacia
@@ -44,6 +54,7 @@ def nmap():
 
 ##############################
 
+# Funcion correspondiente a la hebra de escaneo periodico de la red
 def net_devices(update):
     list_devices = nmap()
     if not list_devices: # Si la lista esta vacia
@@ -52,7 +63,16 @@ def net_devices(update):
         msg = 'Dispositivos actualmente conectados a la red:\n'
         print('Dispositivos incialmente conectados a la red:\n {}'.format(list_devices))
         for device in list_devices:
-            msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
+            is_in = False
+            for my_dev in MY_DEVICES:
+                if my_dev['MAC'] == device['MAC']:
+                    is_in = True
+                    dev_name = my_dev['NAME']
+                    break
+            if is_in:
+                msg = '{}\n{} - {}'.format(msg, device['IP'], dev_name)
+            else:
+                msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
     update.message.reply_text(msg) # El bot contesta con este mensaje
     while(thr_on == True): # Bucle infinito
         list_new_devices = nmap()
@@ -75,13 +95,29 @@ def net_devices(update):
                 msg = 'Nuevo dispositivo conectado a la red:\n'
                 for device in list_devices_to_add:
                     list_devices.append(device)
-                    msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
+                    for my_dev in MY_DEVICES:
+                        if my_dev['MAC'] == device['MAC']:
+                            is_in = True
+                            dev_name = my_dev['NAME']
+                            break
+                    if is_in:
+                        msg = '{}\n{} - {}'.format(msg, device['IP'], dev_name)
+                    else:
+                        msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
                 del list_devices_to_add[:]
             if list_devices_to_rm: # Si la lista de dispositivos a eliminar (estaban conectados y ahora no se han detectado)
                 msg = '{}\n\n\nDispositivo desconectado de la red:\n'.format(msg)
                 for device in list_devices_to_rm:
                     list_devices.remove(device)
-                    msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
+                    for my_dev in MY_DEVICES:
+                        if my_dev['MAC'] == device['MAC']:
+                            is_in = True
+                            dev_name = my_dev['NAME']
+                            break
+                    if is_in:
+                        msg = '{}\n{} - {}'.format(msg, device['IP'], dev_name)
+                    else:
+                        msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
                 del list_devices_to_rm[:]
                 print('Lista final de dispositivos conectados a la red:\n {}'.format(list_devices))
             if msg:
@@ -93,6 +129,7 @@ def net_devices(update):
 
 thr = None
 thr_on = False
+# Manejador para el comando /enable
 def enable(bot, update):
     global thr
     global thr_on
@@ -105,7 +142,7 @@ def enable(bot, update):
     else:
         update.message.reply_text('El servicio esta activo') # El bot contesta con este mensaje
 
-
+# Manejador para el comando /disable
 def disable(bot, update):
     global thr
     global thr_on
@@ -115,13 +152,38 @@ def disable(bot, update):
     else:
         update.message.reply_text('El servicio esta desactivado') # El bot contesta con este mensaje
 
-
+# Manejador para el comando /devices
 def devices(bot, update):
     list_devices = nmap()
-    msg = 'Dispositivos conectados a la red:\n'
-    for device in list_devices:
-        msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
-    update.message.reply_text(msg)
+    if not list_devices: # Si la lista esta vacia
+        msg = 'Ningun dispositivo detectado'
+    else: # Si la lista no esta vacia
+        msg = 'Dispositivos actualmente conectados a la red:\n'
+        for device in list_devices:
+            msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
+    update.message.reply_text(msg) # El bot contesta con este mensaje
+
+# Manejador para el comando /name
+def name(bot, update, args):
+    # Nota: Comprobar el formato de la mac de entrada.
+    if len(args) == 2: # Si el comando presenta 2 argumentos
+        device = {'NAME': '0.0.0.0', 'MAC': '00:00:00:00:00'}
+        device['NAME'] = args[0]
+        device['MAC'] = args[1]
+        is_in = False
+        for my_dev in MY_DEVICES:
+            if my_dev['MAC'] == device['MAC']:
+                is_in = True
+                dev_name = my_dev['NAME']
+                break
+        if is_in:
+            msg = 'Cambiado el nombre "{}" por el de "{}" para la MAC {}'.format(dev_name, device['NAME'], device['MAC'])
+        else:
+            msg = 'Nombre {} asociado a la MAC {}'.format(device['NAME'], device['MAC'])
+        MY_DEVICES.append(device)
+    else:
+        msg = 'Debe especificarse el nombre que se le va a dar al dispositivo y la MAC de este.\nPor ejemplo:\n\n/name mi_pc 01:23:45:67:89'
+    update.message.reply_text(msg) # El bot contesta con este mensaje
 
 ##############################
 
@@ -141,6 +203,7 @@ def main():
     updater.dispatcher.add_handler(CommandHandler('enable', enable))
     updater.dispatcher.add_handler(CommandHandler('disable', disable))
     updater.dispatcher.add_handler(CommandHandler('devices', devices))
+    updater.dispatcher.add_handler(CommandHandler('name', name, pass_args=True))
 
     # Iniciamos el bot
     updater.start_polling(clean=True)

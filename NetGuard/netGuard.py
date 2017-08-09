@@ -20,7 +20,7 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Rege
 
 ##############################
 
-TOKEN = "XXXXXXXXX:XXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXX" # A establecer por el usuario (consultar mediante @BotFather)
+#TOKEN = "XXXXXXXXX:XXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXX" # A establecer por el usuario (consultar mediante @BotFather)
 TIEMPO_CONSULTA = 10 # Tiempo entre consultas de dispositivos en la red (en segundos)
 
 ##############################
@@ -42,7 +42,7 @@ def llamadaSistema(entrada):
 def nmap():
     device_data = {'IP': '0.0.0.0', 'MAC': '00:00:00:00:00'} # Creamos un diccionario por defecto donde guardar la informacion de los dispositivos (IP y MAC)
     list_dev = [] # Lista de dispositivos inicialmente vacia
-    nmap_raw = llamadaSistema("nmap -sP 192.168.1.1-100 --disable-arp-ping") # Realizamos la llamada al comando
+    nmap_raw = llamadaSistema("sudo nmap -T5 -sP 192.168.1.1-255 --disable-arp-ping") # Realizamos la llamada al comando
     list_ip = findall('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', nmap_raw) # Metemos en una lista las IPs de la respuesta del comando nmap
     list_mac = findall('(?:[0-9a-fA-F]:?){12}', nmap_raw) # Metemos en una lista las MACs de la respuesta del comando nmap
     if len(list_ip)-1 == len(list_mac): # Si el numero de MACs es uno menos que el de IPs (pues la ultima ip de la lista es la de nuestro dispositivo)
@@ -159,8 +159,18 @@ def devices(bot, update):
         msg = 'Ningun dispositivo detectado'
     else: # Si la lista no esta vacia
         msg = 'Dispositivos actualmente conectados a la red:\n'
+        print('Dispositivos incialmente conectados a la red:\n {}'.format(list_devices))
         for device in list_devices:
-            msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
+            is_in = False
+            for my_dev in MY_DEVICES:
+                if my_dev['MAC'] == device['MAC']:
+                    is_in = True
+                    dev_name = my_dev['NAME']
+                    break
+            if is_in:
+                msg = '{}\n{} - {}'.format(msg, device['IP'], dev_name)
+            else:
+                msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
     update.message.reply_text(msg) # El bot contesta con este mensaje
 
 # Manejador para el comando /name

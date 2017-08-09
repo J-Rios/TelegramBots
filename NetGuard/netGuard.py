@@ -7,7 +7,7 @@ Descripcion:
 Autor:                 Jose Rios Rubio
 Fecha de creacion:     08/08/2017
 Fecha de modificacion: 09/08/2017
-Version:               1.0
+Version:               1.1
 '''
 
 # Importar desde librerias
@@ -20,7 +20,7 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Rege
 
 ##############################
 
-#TOKEN = "XXXXXXXXX:XXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXX" # A establecer por el usuario (consultar mediante @BotFather)
+TOKEN = "XXXXXXXXX:XXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXX" # A establecer por el usuario (consultar mediante @BotFather)
 TIEMPO_CONSULTA = 10 # Tiempo entre consultas de dispositivos en la red (en segundos)
 
 ##############################
@@ -42,7 +42,7 @@ def llamadaSistema(entrada):
 def nmap():
     device_data = {'IP': '0.0.0.0', 'MAC': '00:00:00:00:00'} # Creamos un diccionario por defecto donde guardar la informacion de los dispositivos (IP y MAC)
     list_dev = [] # Lista de dispositivos inicialmente vacia
-    nmap_raw = llamadaSistema("sudo nmap -T5 -sP 192.168.1.1-255 --disable-arp-ping") # Realizamos la llamada al comando
+    nmap_raw = llamadaSistema("nmap -T5 -sP 192.168.1.1-255 --disable-arp-ping") # Realizamos la llamada al comando
     list_ip = findall('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', nmap_raw) # Metemos en una lista las IPs de la respuesta del comando nmap
     list_mac = findall('(?:[0-9a-fA-F]:?){12}', nmap_raw) # Metemos en una lista las MACs de la respuesta del comando nmap
     if len(list_ip)-1 == len(list_mac): # Si el numero de MACs es uno menos que el de IPs (pues la ultima ip de la lista es la de nuestro dispositivo)
@@ -95,6 +95,7 @@ def net_devices(update):
                 msg = 'Nuevo dispositivo conectado a la red:\n'
                 for device in list_devices_to_add:
                     list_devices.append(device)
+                    is_in = False
                     for my_dev in MY_DEVICES:
                         if my_dev['MAC'] == device['MAC']:
                             is_in = True
@@ -109,6 +110,7 @@ def net_devices(update):
                 msg = '{}\n\n\nDispositivo desconectado de la red:\n'.format(msg)
                 for device in list_devices_to_rm:
                     list_devices.remove(device)
+                    is_in = False
                     for my_dev in MY_DEVICES:
                         if my_dev['MAC'] == device['MAC']:
                             is_in = True
@@ -177,20 +179,22 @@ def devices(bot, update):
 def name(bot, update, args):
     # Nota: Comprobar el formato de la mac de entrada.
     if len(args) == 2: # Si el comando presenta 2 argumentos
-        device = {'NAME': '0.0.0.0', 'MAC': '00:00:00:00:00'}
-        device['NAME'] = args[0]
-        device['MAC'] = args[1]
+        device_new = {'NAME': '0.0.0.0', 'MAC': '00:00:00:00:00'}
+        device_new['NAME'] = args[0]
+        device_new['MAC'] = args[1]
         is_in = False
         for my_dev in MY_DEVICES:
-            if my_dev['MAC'] == device['MAC']:
+            if my_dev['MAC'] == device_new['MAC']:
                 is_in = True
-                dev_name = my_dev['NAME']
+                dev_old = my_dev
                 break
         if is_in:
-            msg = 'Cambiado el nombre "{}" por el de "{}" para la MAC {}'.format(dev_name, device['NAME'], device['MAC'])
+            msg = 'Cambiado el nombre "{}" por el de "{}" para la MAC {}'.format(dev_old['NAME'], device_new['NAME'], device_new['MAC'])
+            MY_DEVICES.remove(dev_old)
+            MY_DEVICES.append(device_new)
         else:
-            msg = 'Nombre {} asociado a la MAC {}'.format(device['NAME'], device['MAC'])
-        MY_DEVICES.append(device)
+            msg = 'Nombre {} asociado a la MAC {}'.format(device_new['NAME'], device_new['MAC'])
+            MY_DEVICES.append(device_new)
     else:
         msg = 'Debe especificarse el nombre que se le va a dar al dispositivo y la MAC de este.\nPor ejemplo:\n\n/name mi_pc 01:23:45:67:89'
     update.message.reply_text(msg) # El bot contesta con este mensaje

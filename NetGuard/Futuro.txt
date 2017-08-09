@@ -1,0 +1,9 @@
+
+El Bot me deja un mal sabor de boca, por 2 cosas:
+
+1. Tarda mucho en realizar el escaneo (sobre un minuto y medio). Además, si alguien se conecta en medio de un escaneo y le dan una IP que ya se escaneó y se desconecta antes de que empiece el siguiente escaneo, el sistema no se dara cuenta de que se ha conectado.
+
+2. No es fiable y a veces da falsas desconexiones-reconexiones (cuando en un escaneo no se encuentra un dispositivo).
+
+
+La solución a ambas sería encontrar alguna herramienta distinta a la utilizada (nmap), que realice un escaneo más rápido y sea completamente fiable (siempre detecte absolutamente todos los dispositivos que hay conectados).

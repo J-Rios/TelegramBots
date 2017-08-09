@@ -42,7 +42,7 @@ def llamadaSistema(entrada):
 def nmap():
     device_data = {'IP': '0.0.0.0', 'MAC': '00:00:00:00:00'} # Creamos un diccionario por defecto donde guardar la informacion de los dispositivos (IP y MAC)
     list_dev = [] # Lista de dispositivos inicialmente vacia
-    nmap_raw = llamadaSistema("nmap -T5 -sP 192.168.1.1-255 --disable-arp-ping") # Realizamos la llamada al comando
+    nmap_raw = llamadaSistema("nmap -sP 192.168.1.0/24 --disable-arp-ping") # Realizamos la llamada al comando
     list_ip = findall('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', nmap_raw) # Metemos en una lista las IPs de la respuesta del comando nmap
     list_mac = findall('(?:[0-9a-fA-F]:?){12}', nmap_raw) # Metemos en una lista las MACs de la respuesta del comando nmap
     if len(list_ip)-1 == len(list_mac): # Si el numero de MACs es uno menos que el de IPs (pues la ultima ip de la lista es la de nuestro dispositivo)
@@ -56,12 +56,12 @@ def nmap():
 
 # Funcion correspondiente a la hebra de escaneo periodico de la red
 def net_devices(update):
+    update.message.reply_text('Escaneando la red. Este proceso puede tardar hasta 2 minutos...') # El bot contesta con este mensaje
     list_devices = nmap()
     if not list_devices: # Si la lista esta vacia
         msg = 'Ningun dispositivo detectado'
     else: # Si la lista no esta vacia
         msg = 'Dispositivos actualmente conectados a la red:\n'
-        print('Dispositivos incialmente conectados a la red:\n {}'.format(list_devices))
         for device in list_devices:
             is_in = False
             for my_dev in MY_DEVICES:
@@ -76,7 +76,6 @@ def net_devices(update):
     update.message.reply_text(msg) # El bot contesta con este mensaje
     while(thr_on == True): # Bucle infinito
         list_new_devices = nmap()
-        print('Nuevo escaneo. Dispositivos conectados a la red:\n {}'.format(list_new_devices))
         if not list_new_devices:
             del list_devices[:]
         else:
@@ -88,8 +87,6 @@ def net_devices(update):
             for old_device in list_devices:
                 if old_device not in list_new_devices:
                     list_devices_to_rm.append(old_device)
-            print('Dispositivos a insertar:\n{}'.format(list_devices_to_add))
-            print('Dispositivos a eliminar:\n{}'.format(list_devices_to_rm))
             msg = ''
             if list_devices_to_add: # Si la lista de nuevos dispositivos detectados tiene algun nuevo dispositivo
                 msg = 'Nuevo dispositivo conectado a la red:\n'
@@ -121,10 +118,9 @@ def net_devices(update):
                     else:
                         msg = '{}\n{} - {}'.format(msg, device['IP'], device['MAC'])
                 del list_devices_to_rm[:]
-                print('Lista final de dispositivos conectados a la red:\n {}'.format(list_devices))
             if msg:
                 update.message.reply_text(msg) # El bot contesta con este mensaje
-        print('sleep')
+        #print('Escaneo realizado:\n{}\n\n'.format(list_devices))
         sleep(TIEMPO_CONSULTA) # Esperamos el tiempo entre consultas
 
 ##############################
@@ -137,12 +133,12 @@ def enable(bot, update):
     global thr_on
     if not thr_on: # Si la hebra no esta activa
         thr_on = True # Activamos la variable de hebra activa
-        update.message.reply_text('Servicio activado') # El bot contesta con este mensaje
+        update.message.reply_text('Servicio activado. A continuacion, se monitorizara de forma automatica las conexiones/desconexiones de red') # El bot contesta con este mensaje
         thr = Thread(target=net_devices, args=(update,)) # Creamos un nuevo hilo de ejecucion como demonio, para la funcion "net_devices"
         thr.setDaemon(True) # Establecemos al hilo para ejecucion como demonio
         thr.start() # Lanzamos el nuevo hilo
     else:
-        update.message.reply_text('El servicio esta activo') # El bot contesta con este mensaje
+        update.message.reply_text('El servicio ya esta activo') # El bot contesta con este mensaje
 
 # Manejador para el comando /disable
 def disable(bot, update):
@@ -150,18 +146,18 @@ def disable(bot, update):
     global thr_on
     if thr_on: # Si la hebra esta activa
         thr_on = False # Desactivamos la variable de hebra activa
-        update.message.reply_text('Servicio desactivado') # El bot contesta con este mensaje
+        update.message.reply_text('Servicio desactivado. La monitorizacion de la red se ha detenido') # El bot contesta con este mensaje
     else:
-        update.message.reply_text('El servicio esta desactivado') # El bot contesta con este mensaje
+        update.message.reply_text('El servicio ya esta desactivado') # El bot contesta con este mensaje
 
 # Manejador para el comando /devices
 def devices(bot, update):
+    update.message.reply_text('Escaneando la red. Este proceso puede tardar hasta 2 minutos...') # El bot contesta con este mensaje
     list_devices = nmap()
     if not list_devices: # Si la lista esta vacia
         msg = 'Ningun dispositivo detectado'
     else: # Si la lista no esta vacia
         msg = 'Dispositivos actualmente conectados a la red:\n'
-        print('Dispositivos incialmente conectados a la red:\n {}'.format(list_devices))
         for device in list_devices:
             is_in = False
             for my_dev in MY_DEVICES:
@@ -205,7 +201,7 @@ def main():
 
     # Determinar si se ha ejecutado como root
     if geteuid() != 0: # Si el script ha no ha sido ejecutado por el root (0)
-        exit('\n  El Script debe ser lanzado con permisos root para poder acceder a la interfaz de red.\n\n') # Cerramos el script mostrando por salida este mensaje
+        exit('\n---------------\nEl Script debe ser lanzado con permisos root para poder acceder a la interfaz de red.\n---------------\n\n') # Cerramos el script mostrando por salida este mensaje
 
     # Crear el manejador de eventos a partir del TOKEN del bot
     updater = Updater(TOKEN)

@@ -9,9 +9,9 @@ Author:
 Creation date:
     23/08/2017
 Last modified date:
-    06/10/2017
+    27/10/2017
 Version:
-    1.5.0
+    1.5.1
 '''
 
 ####################################################################################################
@@ -66,6 +66,7 @@ class CchatFeed(Thread):
         self.bot = args[2]
         self.end = False
         self.lock_end = Lock()
+        self.sent_list = []
 
 
     def get_id(self):
@@ -205,9 +206,15 @@ class CchatFeed(Thread):
                             feed_titl, TEXT[self.lang]['LINE'], entry_titl, \
                             last_entry['Published'], last_entry['Summary'])
                     # Send the message
-                    sent = self.tlg_send_html(bot_msg, flood_control=False)
-                    if not sent:
-                        self.tlg_send_text(bot_msg, flood_control=False)
+                    if bot_msg not in self.sent_list:
+                        sent = self.tlg_send_html(bot_msg, flood_control=False)
+                        if not sent:
+                            self.tlg_send_text(bot_msg, flood_control=False)
+                        # Add message to sent list and limit it to 50
+                        self.sent_list.append(bot_msg)
+                        if len(self.sent_list) > 50:
+                            del self.sent_list[0]
+                    
                 else:
                     # Send a message to tell that this feed does not have any entry
                     feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title'])
@@ -237,11 +244,16 @@ class CchatFeed(Thread):
                         print('[{}] New entry:\n{}\n{}\n{}\n{}\n'.format(self.name, \
                                 entry['Title'], entry['URL'], entry['Published'], entry['Summary']))
                         # Send the message
-                        sent = self.tlg_send_html(bot_msg)
-                        if not sent:
-                            sent = self.tlg_send_text(bot_msg)
-                        if sent:
-                            change = True
+                        if bot_msg not in self.sent_list:
+                            sent = self.tlg_send_html(bot_msg)
+                            if not sent:
+                                sent = self.tlg_send_text(bot_msg)
+                            if sent:
+                                change = True
+                            # Add message to sent list and limit it to 50
+                            self.sent_list.append(bot_msg)
+                            if len(self.sent_list) > 50:
+                                del self.sent_list[0]
                     if self.end:
                         break
                 if self.end:
@@ -270,9 +282,10 @@ class CchatFeed(Thread):
         '''Check if an entry is in the last_entries list'''
         # For each entry in lat entries, check if there is any with the same title and url
         for l_entry in last_entries:
-            if entry['Title'] == l_entry['Title']:
-                if entry['URL'] == l_entry['URL']:
-                    #if entry['Summary'] == l_entry['Summary']:
+            if entry['URL'] == l_entry['URL']:
+                return True
+            else:
+                if entry['Title'] == l_entry['Title'] and entry['Summary'] == l_entry['Summary']:
                     return True
 
 

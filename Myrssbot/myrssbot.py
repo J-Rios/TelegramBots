@@ -9,9 +9,9 @@ Author:
 Creation date:
     23/08/2017
 Last modified date:
-    27/10/2017
+    12/11/2017
 Version:
-    1.5.1
+    1.6.0
 '''
 
 ####################################################################################################
@@ -25,9 +25,8 @@ from time import sleep, time
 from threading import Thread, Lock
 from collections import OrderedDict
 from feedparser import parse
-from telegram import MessageEntity, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, \
-                         ConversationHandler, CallbackQueryHandler
+from telegram import ParseMode
+from telegram.ext import Updater, CommandHandler
 from telegram.error import TelegramError, TimedOut
 
 import TSjson
@@ -110,7 +109,7 @@ class CchatFeed(Thread):
         while not end_thread:
             # Get the actual time (seconds since epoch)
             init_time = time()
-            # Read chat feeds from json file content and determine actual feeds
+            # Read chat feeds from json file content and determine actual feeds and search terms
             feeds = self.read_feeds()
             actual_feeds = self.parse_feeds(feeds)
             # Send the telegram feeds message/s if any change was made in the feeds entries
@@ -202,19 +201,20 @@ class CchatFeed(Thread):
                     feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title'])
                     entry_titl = '<a href="{}">{}</a>'.format(last_entry['URL'], \
                             last_entry['Title'])
+                    # Reduce consecutive '\n' characters to maximum '\n\n\n'
+                    last_entry['Summary'] = self.eolfixedsize(last_entry['Summary'], 3)
                     bot_msg = '<b>Feed:</b>\n{}{}<b>Last entry:</b>\n\n{}\n{}\n\n{}'.format( \
                             feed_titl, TEXT[self.lang]['LINE'], entry_titl, \
                             last_entry['Published'], last_entry['Summary'])
                     # Send the message
-                    if bot_msg not in self.sent_list:
-                        sent = self.tlg_send_html(bot_msg, flood_control=False)
-                        if not sent:
-                            self.tlg_send_text(bot_msg, flood_control=False)
-                        # Add message to sent list and limit it to 50
-                        self.sent_list.append(bot_msg)
-                        if len(self.sent_list) > 50:
+                    sent = self.tlg_send_html(bot_msg, flood_control=False)
+                    if not sent:
+                        self.tlg_send_text(bot_msg, flood_control=False)
+                    # Add message to sent list and limit it to 1000
+                    if last_entry['URL'] not in self.sent_list:
+                        self.sent_list.append(last_entry['URL'])
+                        if len(self.sent_list) > 1000:
                             del self.sent_list[0]
-                    
                 else:
                     # Send a message to tell that this feed does not have any entry
                     feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title'])
@@ -236,6 +236,8 @@ class CchatFeed(Thread):
                         # Send the telegram message/s
                         feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title'])
                         entry_titl = '<a href="{}">{}</a>'.format(entry['URL'], entry['Title'])
+                        # Reduce consecutive '\n' characters to maximum '\n\n\n'
+                        entry['Summary'] = self.eolfixedsize(entry['Summary'], 3)
                         bot_msg = '{}{}{}\n{}\n\n{}'.format(feed_titl, TEXT[self.lang]['LINE'], \
                                 entry_titl, entry['Published'], entry['Summary'])
                         # Debug
@@ -243,17 +245,21 @@ class CchatFeed(Thread):
                                 entry['Title'], entry['URL'], entry['Published'], entry['Summary'])
                         print('[{}] New entry:\n{}\n{}\n{}\n{}\n'.format(self.name, \
                                 entry['Title'], entry['URL'], entry['Published'], entry['Summary']))
-                        # Send the message
-                        if bot_msg not in self.sent_list:
-                            sent = self.tlg_send_html(bot_msg)
-                            if not sent:
-                                sent = self.tlg_send_text(bot_msg)
-                            if sent:
-                                change = True
-                            # Add message to sent list and limit it to 50
-                            self.sent_list.append(bot_msg)
-                            if len(self.sent_list) > 50:
-                                del self.sent_list[0]
+                        # Check if there is search terms and the message contain any of them
+                        json_feed = get_feed(self.chat_id, feed['URL'])
+                        if (not json_feed['SEARCH_TERMS']) or ((json_feed['SEARCH_TERMS']) and \
+                            (self.search_term_in_entry(entry, json_feed['SEARCH_TERMS']))):
+                            # Send the message
+                            if entry['URL'] not in self.sent_list:
+                                sent = self.tlg_send_html(bot_msg)
+                                if not sent:
+                                    sent = self.tlg_send_text(bot_msg)
+                                if sent:
+                                    change = True
+                                # Add message to sent list and limit it to 1000
+                                self.sent_list.append(entry['URL'])
+                                if len(self.sent_list) > 1000:
+                                    del self.sent_list[0]
                     if self.end:
                         break
                 if self.end:
@@ -278,6 +284,19 @@ class CchatFeed(Thread):
         return valid
 
 
+    def search_term_in_entry(self, entry, search_terms):
+        '''Check if the message contains any of the search term inside'''
+        # For each search term, check if it is a substring of the message
+        num_terms_in = 0
+        for term in search_terms:
+            if (term in entry['Title']) or (term in entry['Summary']):
+                num_terms_in = num_terms_in + 1
+        if num_terms_in == len(search_terms):
+            return True
+        else:
+            return False
+
+
     def entry_in_last(self, entry, last_entries):
         '''Check if an entry is in the last_entries list'''
         # For each entry in lat entries, check if there is any with the same title and url
@@ -287,6 +306,22 @@ class CchatFeed(Thread):
             else:
                 if entry['Title'] == l_entry['Title'] and entry['Summary'] == l_entry['Summary']:
                     return True
+
+
+    def eolfixedsize(self, text, num):
+        '''Reduce consecutive '\n' characters to maximum '\n\n\n'''
+        fix = ''
+        for _ in range(0, num):
+            fix = '{}\n'.format(fix)
+        text_fixed = text
+        text_fixed = re.sub(r"\n\s*\n", "\n\n", text_fixed) # Change "\n  ...  \n" to "\n\n"
+        text_fixed = text_fixed.replace('\n \t\n', '\n\t\n')
+        text_fixed = text_fixed.replace('\n\t \n', '\n\t\n')
+        text_fixed = text_fixed.replace('\n \n', '\n\n')
+        text_fixed = text_fixed.replace('\t\n', '\n')
+        text_fixed = text_fixed.replace(' \n', '\n')
+        text_fixed = re.sub(r'\n{4,}', fix, text_fixed) # Change "\n\n\n\n..." to "\n\n\n"
+        return text_fixed
 
 
     def html_fix_tlg(self, summary):
@@ -529,6 +564,34 @@ def is_not_active(chat_id):
     return is_not_running # Return running state
 
 
+def find_between(string, first, last):
+    '''Function to find the first substring between two characters of string'''
+    try:
+        start = string.index(first) + len(first)
+        end = string.index(last, start)
+        return string[start:end]
+    except ValueError:
+        return ""
+
+
+def get_feed(chat_id, feed_url):
+    '''Function to get (search and read) a feed from the chat feeds file'''
+    # Create TSjson object for feeds of chat file and read the content
+    fjson_chat_feeds = TSjson.TSjson('{}/{}.json'.format(CONST['CHATS_DIR'], chat_id))
+    subs_feeds = fjson_chat_feeds.read_content()
+    subs_feeds = subs_feeds[0]
+    # Search for the feed and get json data
+    feed = {}
+    for sub_feed in subs_feeds['Feeds']:
+        if sub_feed['URL'] == feed_url:
+            feed['Title'] = sub_feed['Title']
+            feed['URL'] = sub_feed['URL']
+            feed['SEARCH_TERMS'] = sub_feed['SEARCH_TERMS']
+            break
+    # Return feed
+    return feed
+
+
 def add_feed(user_id, chat_id, feed_title, feed_url):
     '''Function to add (subscribe) a new url feed to the chat feeds file'''
     # Read user chats and add the actual chat to it
@@ -548,6 +611,7 @@ def add_feed(user_id, chat_id, feed_title, feed_url):
         feed = {}
         feed['Title'] = feed_title
         feed['URL'] = feed_url
+        feed['SEARCH_TERMS'] = []
         if feed not in subs_feeds:
             subs_feeds = subs_feeds[0]
             subs_feeds['Feeds'].append(feed)
@@ -557,6 +621,7 @@ def add_feed(user_id, chat_id, feed_title, feed_url):
         feed = {}
         feed['Title'] = feed_title
         feed['URL'] = feed_url
+        feed['SEARCH_TERMS'] = []
         usr_feeds = OrderedDict([])
         usr_feeds['Chat_id'] = chat_id
         usr_feeds['Feeds'] = [feed]
@@ -565,18 +630,109 @@ def add_feed(user_id, chat_id, feed_title, feed_url):
 
 def remove_feed(chat_id, feed_url):
     '''Function to remove (unsubscribe) a feed from the chat feeds file'''
-    # Get the feed title
+    # Create TSjson object for feeds of chat file and read the content
+    fjson_chat_feeds = TSjson.TSjson('{}/{}.json'.format(CONST['CHATS_DIR'], chat_id))
+    subs_feeds = fjson_chat_feeds.read_content()
+    subs_feeds = subs_feeds[0]
+    # Get the feed and set json data
     feed = {}
     feedpars = parse(feed_url)
     feed['Title'] = feedpars['feed']['title']
     feed['URL'] = feed_url
-    # Create TSjson object for feeds of chat file and remove the feed
+    feed['SEARCH_TERMS'] = []
+    for sub_feed in subs_feeds['Feeds']:
+        if sub_feed['URL'] == feed['URL']:
+            feed['SEARCH_TERMS'] = sub_feed['SEARCH_TERMS']
+            break
+    # Remove the specific feed and update json file
+    subs_feeds['Feeds'].remove(feed)
+    fjson_chat_feeds.update(subs_feeds, 'Chat_id')
+
+
+def add_srchterms(chat_id, feed_url, search_terms):
+    '''Function to add search terms to feed'''
+    # Read chat feeds file and read the content
     fjson_chat_feeds = TSjson.TSjson('{}/{}.json'.format(CONST['CHATS_DIR'], chat_id))
     subs_feeds = fjson_chat_feeds.read_content()
-    if subs_feeds:
-        subs_feeds = subs_feeds[0]
-        subs_feeds['Feeds'].remove(feed)
-        fjson_chat_feeds.update(subs_feeds, 'Chat_id')
+    subs_feeds = subs_feeds[0]
+    # Get the json feed
+    for sub_feed in subs_feeds['Feeds']:
+        if sub_feed['URL'] == feed_url:
+            feed = sub_feed
+            break
+    # Add new search terms to feed
+    num_terms_add = 0
+    terms_added = []
+    terms_not_added = []
+    for term in search_terms:
+        if term not in feed['SEARCH_TERMS']:
+            terms_added.append(term)
+            feed['SEARCH_TERMS'].append(term)
+            num_terms_add = num_terms_add + 1
+        else:
+            terms_not_added.append(term)
+    # Update json file
+    subs_feeds['Feeds'].remove(feed)
+    subs_feeds['Feeds'].append(feed)
+    fjson_chat_feeds.update(subs_feeds, 'Chat_id')
+    # Check added terms and determine bot return message
+    feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title']) # Get the title
+    bot_msg = '{}{}'.format(feed_titl, TEXT[lang]['LINE'])
+    if not num_terms_add:
+        bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['SRCH_TERMS_ALL_BEFORE'])
+    else:
+        bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['SRCH_FEED'])
+        for term in terms_added:
+            bot_msg = '{}\n- {}'.format(bot_msg, term)
+        if terms_not_added:
+            bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['LINE'])
+            bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['SRCH_TERM_BEFORE'])
+            for term in terms_not_added:
+                bot_msg = '{}\n- {}'.format(bot_msg, term)
+    return bot_msg
+
+
+def rm_srchterms(chat_id, feed_url, search_terms):
+    '''Function to remove search terms of feed'''
+    # Read chat feeds file and read the content
+    fjson_chat_feeds = TSjson.TSjson('{}/{}.json'.format(CONST['CHATS_DIR'], chat_id))
+    subs_feeds = fjson_chat_feeds.read_content()
+    subs_feeds = subs_feeds[0]
+    # Get the json feed
+    for sub_feed in subs_feeds['Feeds']:
+        if sub_feed['URL'] == feed_url:
+            feed = sub_feed
+            break
+    # Remove search terms from feed
+    num_terms_rm = 0
+    terms_rm = []
+    terms_not_rm = []
+    for term in search_terms:
+        if term in feed['SEARCH_TERMS']:
+            terms_rm.append(term)
+            feed['SEARCH_TERMS'].remove(term)
+            num_terms_rm = num_terms_rm + 1
+        else:
+            terms_not_rm.append(term)
+    # Update json file
+    subs_feeds['Feeds'].remove(feed)
+    subs_feeds['Feeds'].append(feed)
+    fjson_chat_feeds.update(subs_feeds, 'Chat_id')
+    # Check removed terms and determine bot return message
+    feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title']) # Get the title
+    bot_msg = '{}{}'.format(feed_titl, TEXT[lang]['LINE'])
+    if not num_terms_rm:
+        bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['RMSRCH_TERMS_NOT_FOUND'])
+    else:
+        bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['RMSRCH_FEED'])
+        for term in terms_rm:
+            bot_msg = '{}\n- {}'.format(bot_msg, term)
+        if terms_not_rm:
+            bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['LINE'])
+            bot_msg = '{}{}'.format(bot_msg, TEXT[lang]['RMSRCH_TERM_NOT_FOUND'])
+            for term in terms_not_rm:
+                bot_msg = '{}\n- {}'.format(bot_msg, term)
+    return bot_msg
 
 ####################################################################################################
 
@@ -665,17 +821,16 @@ def cmd_signdown(bot, update, args):
 
 def cmd_list(bot, update):
     '''/list command handler'''
-    bot_msg = 'Actual Feeds in chat:{}'.format(TEXT[lang]['LINE'])
+    bot_msg = 'Actual Feeds in chat:{}'.format(TEXT[lang]['LINE']) # Set initial bot response msg
     chat_id = update.message.chat_id # Get the chat ID
     fjson_chat_feeds = TSjson.TSjson('{}/{}.json'.format(CONST['CHATS_DIR'], chat_id)) # Chat file
     chat_feeds = fjson_chat_feeds.read_content() # Read the content of the file
-    if chat_feeds:
-        chat_feeds = chat_feeds[0]
-        # For each feed
-        for feed in chat_feeds['Feeds']:
-            feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title'])
-            bot_msg = '{}{}\n\n'.format(bot_msg, feed_titl)
-    bot.send_message(chat_id=chat_id, text=bot_msg, parse_mode=ParseMode.HTML)
+    if chat_feeds: # If any feed in chat
+        chat_feeds = chat_feeds[0] # Get the feeds
+        for feed in chat_feeds['Feeds']: # For each feed
+            feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title']) # Get the title
+            bot_msg = '{}{}\n\n'.format(bot_msg, feed_titl) # Bot response
+    bot.send_message(chat_id=chat_id, text=bot_msg, parse_mode=ParseMode.HTML) # Bot reply
 
 
 def cmd_add(bot, update, args):
@@ -718,7 +873,7 @@ def cmd_remove(bot, update, args):
                     remove_feed(chat_id, feed_url) # Remove from chat feeds file
                     bot_msg = TEXT[lang]['RM_FEED'] # Bot response
                 else: # No subscribed to that feed
-                    bot_msg = TEXT[lang]['RM_NOT_SUBS'] # Bot response
+                    bot_msg = TEXT[lang]['NO_SUBS'] # Bot response
             else: # No argument or more than 1 argument provided
                 bot_msg = TEXT[lang]['RM_NOT_ARG'] # Bot response
         else: # The user does not have an account yet
@@ -726,6 +881,132 @@ def cmd_remove(bot, update, args):
     else: # The FeedReader thread of this chat is running
         bot_msg = TEXT[lang]['FR_ACTIVE'] # Bot response
     bot.send_message(chat_id=chat_id, text=bot_msg) # Bot reply
+
+
+def cmd_listsearch(bot, update, args):
+    '''/listsearch command handler'''
+    chat_id = update.message.chat_id # Get the chat ID
+    if len(args) == 1: # If 1 argument has been provided
+        feed_url = args[0] # Get the feed url provided (argument)
+        fjson_chat_feeds = TSjson.TSjson('{}/{}.json'.format(CONST['CHATS_DIR'], chat_id)) # Chat f
+        chat_feeds = fjson_chat_feeds.read_content() # Read the content of the file
+        if chat_feeds: # If any feed in chat
+            chat_feeds = chat_feeds[0] # Get the feeds
+            feed_found = None # Feed found variable initial set to None
+            for feed in chat_feeds['Feeds']: # For each feed
+                if feed['URL'] == feed_url: # If feed found
+                    feed_found = feed # Get feed
+                    break # Break and exit the foor loop
+            if feed_found: # If the feed was found
+                feed_titl = '<a href="{}">{}</a>'.format(feed['URL'], feed['Title']) # Get the title
+                bot_msg = 'Actual Search terms in feed:{}'.format(TEXT[lang]['LINE']) # Bot response
+                bot_msg = '{}{}\n\n'.format(bot_msg, feed_titl) # Bot response
+                for term in feed_found['SEARCH_TERMS']: # For each search term
+                    bot_msg = '{}- {}\n'.format(bot_msg, term) # Bot response
+            else: # No subscribed to that feed
+                bot_msg = TEXT[lang]['NO_SUBS'] # Bot response
+        else: # No feeds added yet
+            bot_msg = TEXT[lang]['NO_SUBS'] # Bot response
+    else:
+        # No argument or more than 1 argument provided
+        bot_msg = TEXT[lang]['SRCH_LIST_NOT_ARG'] # Bot response
+    bot.send_message(chat_id=chat_id, text=bot_msg, parse_mode=ParseMode.HTML) # Bot reply
+
+
+def cmd_searchfor(bot, update, args):
+    '''/searchfor command handler'''
+    chat_id = update.message.chat_id # Get the chat ID
+    user_id = update.message.from_user.id # Get the user ID
+    if is_not_active(chat_id): # If the FeedReader thread of this chat is not running
+        if user_is_signedup(user_id): # If the user is signed-up
+            argc = len(args) # Get number of arguments
+            if argc > 1: # If any search term
+                feed_url = args[0] # Get the feed url provided (argument)
+                search_terms = args # Get all arguments (feed url and search terms)
+                del search_terms[0] # Remove first element (feed url) to just keep search terms
+                search_terms_str = search_terms[0] # Get first search term
+                if argc > 2: # If more than one search term word
+                    first_element = True # First element variable set to true
+                    for term in search_terms: # For each term
+                        if not first_element: # If not the first search term
+                            search_terms_str = '{} {}'.format(search_terms_str, term) # Add term
+                        else: # First search term
+                            first_element = False # First element variable set to false
+                    search_terms_str = search_terms_str.replace('" "', '""') # Remove spaces
+                if ('"' not in search_terms_str) or \
+                    search_terms_str.count('"') % 2: # If num of " is %2 (not correct sintax)
+                    bot_msg = TEXT[lang]['SRCH_NOT_QUOTES'] # Bot response
+                else: # Valid search terms sintax ("")
+                    if (' "' in search_terms_str) or ('" ' in search_terms_str): # Spaces
+                        bot_msg = TEXT[lang]['SRCH_NOT_QUOTES'] # Bot response
+                    else: # Correct search terms sintax ("")
+                        del search_terms[:] # Clear the search terms list
+                        while search_terms_str: # While search terms string is not empty
+                            term = find_between(search_terms_str, '"', '"') # Get 1º term between ""
+                            search_terms.append(term) # Add the term to the search term list
+                            search_terms_str = search_terms_str.replace \
+                                    ('"{}"'.format(term), '') # Remove term from string
+                        num_search_terms = len(search_terms) # Get the number of search terms
+                        if num_search_terms > 3: # If 3 or more search terms has been provided
+                            bot_msg = TEXT[lang]['SRCH_ARG_EXCEED'] # Bot response
+                        else: # Less than 3 search terms
+                            if subscribed(chat_id, feed_url): # If user is subscribed to that feed
+                                bot_msg = add_srchterms(chat_id, feed_url, search_terms) # Add terms
+                            else: # No subscribed to that feed
+                                bot_msg = TEXT[lang]['NO_SUBS'] # Bot response
+            else: # If no search terms provided
+                bot_msg = TEXT[lang]['SRCH_NOT_ARG'] # Bot response
+        else: # The user does not have an account yet
+            bot_msg = TEXT[lang]['CMD_NOT_ALLOW'] # Bot response
+    else: # The FeedReader thread of this chat is running
+        bot_msg = TEXT[lang]['FR_ACTIVE'] # Bot response
+    bot.send_message(chat_id=chat_id, text=bot_msg, parse_mode=ParseMode.HTML) # Bot reply
+
+
+def cmd_removesearch(bot, update, args):
+    '''/removesearch command handler'''
+    chat_id = update.message.chat_id # Get the chat ID
+    user_id = update.message.from_user.id # Get the user ID
+    if is_not_active(chat_id): # If the FeedReader thread of this chat is not running
+        if user_is_signedup(user_id): # If the user is signed-up
+            argc = len(args) # Get number of arguments
+            if argc > 1: # If any search term
+                feed_url = args[0] # Get the feed url provided (argument)
+                search_terms = args # Get all arguments (feed url and search terms)
+                del search_terms[0] # Remove first element (feed url) to just keep search terms
+                search_terms_str = search_terms[0] # Get first search term
+                if argc > 2: # If more than one search term word
+                    first_element = True # First element variable set to true
+                    for term in search_terms: # For each term
+                        if not first_element: # If not the first search term
+                            search_terms_str = '{} {}'.format(search_terms_str, term) # Add term
+                        else: # First search term
+                            first_element = False # First element variable set to false
+                    search_terms_str = search_terms_str.replace('" "', '""') # Remove spaces
+                if ('"' not in search_terms_str) or \
+                    search_terms_str.count('"') % 2: # If num of " is %2 (not correct sintax)
+                    bot_msg = TEXT[lang]['SRCH_NOT_QUOTES'] # Bot response
+                else: # Valid search terms sintax ("")
+                    if (' "' in search_terms_str) or ('" ' in search_terms_str): # Spaces
+                        bot_msg = TEXT[lang]['SRCH_NOT_QUOTES'] # Bot response
+                    else: # Correct search terms sintax ("")
+                        del search_terms[:] # Clear the search terms list
+                        while search_terms_str: # While search terms string is not empty
+                            term = find_between(search_terms_str, '"', '"') # Get 1º term between ""
+                            search_terms.append(term) # Add the term to the search term list
+                            search_terms_str = search_terms_str.replace \
+                                    ('"{}"'.format(term), '') # Remove term from string
+                        if subscribed(chat_id, feed_url): # If user is subscribed to that feed
+                            bot_msg = rm_srchterms(chat_id, feed_url, search_terms) # Remove terms
+                        else: # No subscribed to that feed
+                            bot_msg = TEXT[lang]['NO_SUBS'] # Bot response
+            else: # If no search terms provided
+                bot_msg = TEXT[lang]['RMSRCH_NOT_ARG'] # Bot response
+        else: # The user does not have an account yet
+            bot_msg = TEXT[lang]['CMD_NOT_ALLOW'] # Bot response
+    else: # The FeedReader thread of this chat is running
+        bot_msg = TEXT[lang]['FR_ACTIVE'] # Bot response
+    bot.send_message(chat_id=chat_id, text=bot_msg, parse_mode=ParseMode.HTML) # Bot reply
 
 
 def cmd_enable(bot, update):
@@ -747,7 +1028,7 @@ def cmd_enable(bot, update):
                 bot.send_message(chat_id=chat_id, text=TEXT[lang]['ENA_NOT_SUBS']) # Bot reply
         else: # Actual chat FeedReader thread currently running
             bot.send_message(chat_id=chat_id, text=TEXT[lang]['ENA_NOT_DISABLED']) # Bot reply
-    else:
+    else: # The user does not have an account yet
         bot.send_message(chat_id=chat_id, text=TEXT[lang]['CMD_NOT_ALLOW']) # Bot reply
 
 
@@ -757,7 +1038,7 @@ def cmd_disable(bot, update):
     global threads_lock # Use the global lock for active threads
     chat_id = update.message.chat_id # Get the chat id
     user_id = update.message.from_user.id # Get the user ID
-    removed = False
+    removed = False # Set to false a feed removed variable
     if user_is_signedup(user_id): # If the user is signed-up
         bot_msg = TEXT[lang]['DIS_NOT_ENABLED'] # Bot response
         threads_lock.acquire() # Lock the active threads variable
@@ -766,7 +1047,7 @@ def cmd_disable(bot, update):
                 if chat_id == thr_feed.get_id(): # If the actual chat is in the active threads
                     thr_feed.finish() # Finish the thread
                     threads.remove(thr_feed) # Remove actual thread from the active threads variable
-                    removed = True
+                    removed = True # Set to true the removed feed variable
         threads_lock.release() # Release the active threads variable lock
     else: # The user is not signed-up
         bot.send_message(chat_id=chat_id, text=TEXT[lang]['CMD_NOT_ALLOW']) # Bot reply
@@ -793,6 +1074,9 @@ def main():
     disp.add_handler(CommandHandler("list", cmd_list))
     disp.add_handler(CommandHandler("add", cmd_add, pass_args=True))
     disp.add_handler(CommandHandler("remove", cmd_remove, pass_args=True))
+    disp.add_handler(CommandHandler("listsearch", cmd_listsearch, pass_args=True))
+    disp.add_handler(CommandHandler("searchfor", cmd_searchfor, pass_args=True))
+    disp.add_handler(CommandHandler("removesearch", cmd_removesearch, pass_args=True))
     disp.add_handler(CommandHandler("enable", cmd_enable))
     disp.add_handler(CommandHandler("disable", cmd_disable))
     # Start the Bot polling ignoring pending messages (clean=True)

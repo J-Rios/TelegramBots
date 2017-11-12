@@ -9,9 +9,9 @@ Author:
 Creation date:
     23/08/2017
 Last modified date:
-    06/10/2017
+    12/11/2017
 Version:
-    1.5.0
+    1.6.0
 '''
 
 ####################################################################################################
@@ -19,26 +19,23 @@ Version:
 ### Constants ###
 CONST = {
     'DEVELOPER' : '@JoseTLG', # Developer Telegram contact
-    'DATE' : '06/10/2017', # Last modified date
-    'VERSION' : '1.5.0', # Actual version
+    'DATE' : '10/11/2017', # Last modified date
+    'VERSION' : '1.6.0', # Actual version
     'TOKEN' : 'XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', # Bot Token (get it from @BotFather)
     'REG_KEY' : 'registrationKey1234', # User registration Key (for signup and let use the Bot)
     'CHATS_DIR' : './data/chats', # Path of chats data directory
     'USERS_LIST_FILE' : './data/users_list.json', # Json file of signed-up users list
     'TLG_MSG_MAX_CHARS' : 4095, # Max number of characters per message allowed by Telegram
     'MAX_ENTRY_SUMMARY' : 2500, # Max number of characters in entry summary (description)
-    'T_FEEDS' : 60, # Time between feeds check (60s -> 1m)
+    'T_FEEDS' : 300, # Time between feeds check (300s -> 5m)
     'HTML_ANOYING_TAGS' : [ # HTML tags to remove from entries summary
         '<p>', '</p>', '<br>', '<br/>', '<br />', '</br>', '<hr>', '</hr>', '<pre>', '</pre>', \
         '<li>', '</li>', '<ul>', '</ul>', '<ol>', '</ol>', '<blockquote>', '</blockquote>', \
         '<h1>', '</h1>', '<h2>', '</h2>', '<h3>', '</h3>', '<code>', '</code>', '<em>', '</em>', \
         '<strong>', '</strong>', '<html>', '</html>', '<head>', '</head>', '<body>', '</body>', \
         '<script>', '</script>', '<img>', '</img>', '<div>', '</div>', '<input>', '</input>', \
-        '<span>', '</span>', '<form>', '</form>', '<cite>', '</cite>', '&lt;', '&gt;'
-    ],
-    'HTML_ANOYING_STRUCTS' : [ # HTML structures to remove from entries summary
-        '<img(.*?)>', '<div(.*?)>', '<pre(.*?)>', '<span(.*?)>', '<ol(.*?)>', '<ul(.*?)>', \
-        '<form(.*?)>'
+        '<span>', '</span>', '<form>', '</form>', '<cite>', '</cite>', '&lt;', '&gt;', '<!--', \
+        '<del>', '</del>', '<svg>', '</svg>', '-->', '<relative-time>', '</relative-time>'
     ]
 }
 
@@ -142,11 +139,58 @@ TEXT = {
             'Example:\n' \
             '/remove https://www.kickstarter.com/projects/feed.atom',
 
-        'RM_NOT_SUBS' : \
-            'The chat does not have that feed subscription (feed not added).',
-
         'RM_FEED' : \
             'Feed successfull removed.',
+
+        'SRCH_NOT_ARG' : \
+            'The command needs a feed URL and search terms (words or sentences inside double ' \
+            'quotes).\n' \
+            '\n' \
+            'Example:\n\n' \
+            '/searchfor https://www.kickstarter.com/projects/feed.atom "internet of things" ' \
+            '"device"',
+
+        'SRCH_LIST_NOT_ARG' : \
+            'El comando necesita el feed.\n' \
+            '\n' \
+            'Ejemplo:\n' \
+            '/listsearch https://www.kickstarter.com/projects/feed.atom',
+
+        'SRCH_NOT_QUOTES' : \
+            'Search terms must be inside double quotes ("term").',
+
+        'SRCH_ARG_EXCEED' : \
+            'The search terms are limited to 3.',
+
+        'SRCH_TERM_BEFORE' : \
+            'The next search terms was being added before:\n',
+
+        'SRCH_TERMS_ALL_BEFORE' : \
+            'All that terms was being added before.\n',
+
+        'SRCH_FEED' : \
+            'The next search terms has been successfully added:\n',
+
+        'RMSRCH_NOT_ARG' : \
+            'The command needs a feed URL and search terms (words or sentences inside double ' \
+            'quotes).\n' \
+            '\n' \
+            'Example:\n\n' \
+            '/removesearch https://www.kickstarter.com/projects/feed.atom "internet of things" ' \
+            '"device"',
+
+        'RMSRCH_TERM_NOT_FOUND' : \
+            'The next search terms could not be found to remove:\n',
+
+        'RMSRCH_TERMS_NOT_FOUND' : \
+            'No search term could be found to remove. Are you sure that them are added? Check ' \
+            'the list of search terms added with the command /listsearch.\n',
+
+        'RMSRCH_FEED' : \
+            'The next search terms has been successfully removed:\n',
+
+        'NO_SUBS' : \
+            'The chat does not have that feed subscription (feed not added).',
 
         'NO_ENTRIES' : \
             'There is no current entries in this feed.',
@@ -199,6 +243,17 @@ TEXT = {
             '\n' \
             '/remove - Remove a subscribed feed from the current chat. To use it, is necessary ' \
             'that the user was already signed-up in the bot system.\n' \
+            '\n' \
+            '/listsearch - List the actual search terms of a feed.\n' \
+            '\n' \
+            '/searchfor - Set one or more search terms for the specific feed. Once established, ' \
+            'the bot will notify just entries that contains all of them search terms. The terms ' \
+            'must be writen inside double quotes and them can be words or exactly phrases. The ' \
+            'number of terms are limited to 3. To use it, is necessary that the user was already ' \
+            'signed-up in the bot system.\n' \
+            '\n' \
+            '/removesearch - Remove search terms that was being added before. To use it, is ' \
+            'necessary that the user was already signed-up in the bot system.\n' \
             '\n' \
             '/enable - Enable the FeedsReader of the current chat (start feeds notifications). ' \
             'To use it, is necessary that the user was already signed-up in the bot system.\n' \
@@ -307,11 +362,59 @@ TEXT = {
             'Ejemplo:\n' \
             '/remove https://www.kickstarter.com/projects/feed.atom',
 
-        'RM_NOT_SUBS' : \
-            'El chat no esta subscrito a ese feed (no esta añadido).',
-
         'RM_FEED' : \
             'Feed eliminado correctamente.',
+
+        'SRCH_LIST_NOT_ARG' : \
+            'El comando necesita el feed.\n' \
+            '\n' \
+            'Ejemplo:\n' \
+            '/listsearch https://www.kickstarter.com/projects/feed.atom',
+
+        'SRCH_NOT_ARG' : \
+            'El comando necesita la URL del feed y los terminos de busqueda (palabras o frases ' \
+            'exactas, entre comillas).\n' \
+            '\n' \
+            'Ejemplo:\n\n' \
+            '/searchfor https://www.kickstarter.com/projects/feed.atom "internet of things" ' \
+            '"device"',
+
+        'SRCH_NOT_QUOTES' : \
+            'Los terminos de busqueda deben ir entre comillas dobles ("termino").',
+
+        'SRCH_ARG_EXCEED' : \
+            'Los terminos de busqueda estan limitados a 3.',
+
+        'SRCH_TERM_BEFORE' : \
+            'Los siguientes terminos de busqueda ya habian sido añadidos anteriormente:\n',
+
+        'SRCH_TERMS_ALL_BEFORE' : \
+            'Todos esos terminos de busqueda ya habian sido añadidos anteriormente.\n',
+
+        'SRCH_FEED' : \
+            'Los siguientes terminos de busqueda se añadieron de forma correcta:\n',
+
+        'RMSRCH_NOT_ARG' : \
+            'El comando necesita la URL del feed y los terminos de busqueda (palabras o frases ' \
+            'exactas, entre comillas).\n' \
+            '\n' \
+            'Ejemplo:\n\n' \
+            '/removesearch https://www.kickstarter.com/projects/feed.atom "internet of things" ' \
+            '"device"',
+
+        'RMSRCH_TERM_NOT_FOUND' : \
+            'No se han encontrado para borrar los siguientes terminos de busqueda:\n',
+
+        'RMSRCH_TERMS_NOT_FOUND' : \
+            'No se han encontrado ninguno de esos terminos de busqueda. Estas seguro de que ' \
+            'estan añadidos? Comprueba la lista de terminos de busqueda añadidos con el comando ' \
+            '/listsearch.\n',
+
+        'RMSRCH_FEED' : \
+            'Los siguientes terminos de busqueda se eliminaron de forma correcta:\n',
+
+        'NO_SUBS' : \
+            'El chat no esta subscrito a ese feed (no esta añadido).',
 
         'NO_ENTRIES' : \
             'Actualmente no hay entradas para este feed.',
@@ -367,6 +470,18 @@ TEXT = {
             '\n' \
             '/remove - Elimina un feed subscrito del chat actual. Para usarlo, es necesario que ' \
             'el usuario este inscrito previamente en el sistema del Bot.\n' \
+            '\n' \
+            '/listsearch - Lista los terminos de busqueda asociados a un feed.\n' \
+            '\n' \
+            '/searchfor - Establece uno o más terminos de busqueda para el feed en cuestion. Una ' \
+            'vez establecidos, se notificarán solo aquellas entradas del feed que contengan ' \
+            'dichos terminos. Los terminos deben ir entre comillas dobles y podrán ser palabras ' \
+            'o frases exactas. El numero de terminos de busqueda esta limitado a 3. Para usarlo, ' \
+            'es necesario que el usuario este inscrito previamente en el sistema del Bot.\n' \
+            '\n' \
+            '/removesearch - Elimina terminos de busqueda que fueron añadidos anteriormente. ' \
+            'Para usarlo, es necesario que el usuario este inscrito previamente en el sistema ' \
+            'del Bot.\n' \
             '\n' \
             '/enable - Habilita el lector de feeds del chat actual (pone en funcionamiento las ' \
             'notificaciones de los feeds). Para usarlo, es necesario que el usuario este ' \

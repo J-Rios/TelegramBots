@@ -3,10 +3,7 @@
 Script:                opibot.py
 
 Descripcion:
-    Bot de Telegram que gestiona todo un sistema de reputaciones de los usuarios pertenecientes a
-    un grupo. Permite a un usuario, dar "Likes" a los mensajes de otros, y el numero global de
-    "Likes" (la suma de todos los likes de todos los mensajes de un mismo usuario) determinara los
-    puntos de reputacion que dicho usuario tiene.
+    Bot de Telegram que permite controlar el sistema Linux que lo ejecuta, en este caso una Orange Pi.
 
 Autor:                 Jose Rios Rubio
 Fecha de creacion:     25/09/2016
